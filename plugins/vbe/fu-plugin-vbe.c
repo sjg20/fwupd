@@ -33,9 +33,20 @@ fu_plugin_vbe_destroy(FuPlugin *plugin)
 		g_free(priv->vbe_dir);
 }
 
-static void process_bootflow(gchar *buf, gsize len)
+static gboolean process_bootflow(gchar *buf, gsize len, GError **error)
 {
-	fdt_check_header(buf);
+	int ret;
+
+	ret = fdt_check_header(buf);
+	g_log(NULL, G_LOG_LEVEL_INFO, "err %d\n", ret);
+	if (ret) {
+		g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_INVALID_FILE,
+			    "Bootflow file is corrupt - ignoring (%s)",
+			    fdt_strerror(ret));
+		return FALSE;
+	}
+
+	return TRUE;
 }
 
 static gboolean
@@ -54,12 +65,11 @@ fu_plugin_vbe_startup(FuPlugin *plugin, GError **error)
 
 	/* Read in the bootflow info */
 	bfname = g_build_filename(priv->vbe_dir, "bootflow.dtb", NULL);
-	if (!g_file_get_contents(bfname, &buf, &len, error)) {
-		g_prefix_error(error, "Could not read '%s'", bfname);
+	if (!g_file_get_contents(bfname, &buf, &len, error))
 		return FALSE;
-	}
 	g_log(NULL, G_LOG_LEVEL_INFO, "Processing bootflow '%s'", bfname);
-	process_bootflow(buf, len);
+	if (!process_bootflow(buf, len, error))
+		return FALSE;
 
 	return TRUE;
 }
