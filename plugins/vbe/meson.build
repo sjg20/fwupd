@@ -1,4 +1,5 @@
-if get_option('plugin_vbe').enabled() or get_option('plugin_vbe').auto()
+if get_option('plugin_vbe').enabled() or \
+   (get_option('plugin_vbe').auto() and libfdt.found())
 cargs = ['-DG_LOG_DOMAIN="FuPluginVbe"']
 
 shared_module('fu_plugin_vbe',
@@ -24,6 +25,7 @@ shared_module('fu_plugin_vbe',
   ],
   dependencies : [
     plugin_deps,
+    libfdt,
   ],
 )
 endif
