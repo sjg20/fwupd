@@ -12,6 +12,12 @@
 #include <fwupdplugin.h>
 #include <libfdt.h>
 
+/* File to use for system information */
+#define SYSTEM_DT	"system.dtb"
+
+/* Path to the firmware-update info in the system info */
+#define NODE_PATH	"/chosen/fwupd/firmware"
+
 struct FuPluginData {
 	gchar *vbe_dir;
 };
@@ -33,18 +39,38 @@ fu_plugin_vbe_destroy(FuPlugin *plugin)
 		g_free(priv->vbe_dir);
 }
 
-static gboolean process_bootflow(gchar *buf, gsize len, GError **error)
+static gboolean process_system(gchar *fdt, gsize fdt_len, GError **error)
 {
-	int ret;
+	const char *compat;
+	int ret, node, len;
 
-	ret = fdt_check_header(buf);
-	g_log(NULL, G_LOG_LEVEL_INFO, "err %d\n", ret);
+	ret = fdt_check_header(fdt);
 	if (ret) {
 		g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_INVALID_FILE,
-			    "Bootflow file is corrupt - ignoring (%s)",
+			    "System DT is corrupt (%s)",
 			    fdt_strerror(ret));
 		return FALSE;
 	}
+	if (fdt_totalsize(fdt) != fdt_len) {
+		g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_INVALID_FILE,
+			    "System DT size mismatch (header=%x, file=%zx)",
+			    fdt_totalsize(fdt), fdt_len);
+		return FALSE;
+	}
+	node = fdt_path_offset(fdt, NODE_PATH);
+	if (node < 0) {
+		g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_INVALID_FILE,
+			    "Missing node '%s' (%s)", NODE_PATH,
+			    fdt_strerror(ret));
+		return FALSE;
+	}
+	compat = fdt_getprop(fdt, node, "compatible", &len);
+	if (!compat) {
+		g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_INVALID_FILE,
+			    "Unknown update mechanism (%s)", fdt_strerror(len));
+		return FALSE;
+	}
+	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "Update mechanism: %s", compat);
 
 	return TRUE;
 }
@@ -63,13 +89,17 @@ fu_plugin_vbe_startup(FuPlugin *plugin, GError **error)
 	vbe_dir = g_build_filename(state_dir, "vbe", NULL);
 	priv->vbe_dir = g_steal_pointer(&vbe_dir);
 
-	/* Read in the bootflow info */
-	bfname = g_build_filename(priv->vbe_dir, "bootflow.dtb", NULL);
+	/* Read in the system info */
+	bfname = g_build_filename(priv->vbe_dir, SYSTEM_DT, NULL);
 	if (!g_file_get_contents(bfname, &buf, &len, error))
 		return FALSE;
-	g_log(NULL, G_LOG_LEVEL_INFO, "Processing bootflow '%s'", bfname);
-	if (!process_bootflow(buf, len, error))
+	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "Processing system DT '%s'",
+	      bfname);
+	if (!process_system(buf, len, error)) {
+		g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "Failed: %s",
+		      (*error)->message);
 		return FALSE;
+	}
 
 	return TRUE;
 }
