@@ -19,6 +19,10 @@
 /* Path to the firmware-update info in the system info */
 #define NODE_PATH	"/chosen/fwupd/firmware"
 
+struct vbe_ctx {
+	const gchar *vbe_method;
+};
+
 struct FuPluginData {
 	gchar *vbe_dir;
 	const gchar *vbe_method;
@@ -118,19 +122,24 @@ fu_plugin_vbe_startup(FuPlugin *plugin, GError **error)
 static gboolean
 fu_plugin_vbe_coldplug(FuPlugin *plugin, GError **error)
 {
+	FuContext *ctx = fu_plugin_get_context(plugin);
 	FuPluginData *priv = fu_plugin_get_data(plugin);
-	g_autoptr(FuDevice) dev = NULL;
+	g_autoptr(FuDevice) dev;
 
+	dev = fu_vbe_device_new(ctx, priv->vbe_method);
 	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "coldplug");
 	fu_device_set_id(dev, priv->vbe_method);
+	fu_device_set_name(dev, "VBE (Verified Boot for Embedded)");
 	fu_device_add_guid(dev, priv->vbe_method);
 // 	fu_device_add_guid(dev, "ea1b96eb-a430-4033-8708-498b6d98178b");
-	fu_device_set_version(dev, "1.2.3");
+	fu_device_set_version_format(dev, FWUPD_VERSION_FORMAT_TRIPLET);
+	fu_device_set_version(dev, "0.0.1");
 	fu_device_set_version_lowest(dev, "1.2.2");
 	fu_device_set_version_bootloader(dev, "0.1.2");
 	fu_device_add_icon(dev, "computer");
 	fu_device_add_flag(dev, FWUPD_DEVICE_FLAG_UPDATABLE);
 	fu_plugin_device_add(plugin, dev);
+	g_object_ref(dev);
 	return TRUE;
 }
 

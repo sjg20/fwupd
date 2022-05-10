@@ -14,12 +14,13 @@
 #include "fu-vbe-device.h"
 
 struct _FuVbeDevice {
+	FuUdevDevice parent_instance;
 	char *vbe_method;
 };
 
 G_DEFINE_TYPE(FuVbeDevice, fu_vbe_device, FU_TYPE_DEVICE)
 
-enum { PROP_0, PROP_METHOD, PROP_LAST };
+enum { PROP_0, PROP_VBE_METHOD, PROP_LAST };
 
 static gboolean
 fu_vbe_device_set_quirk_kv(FuDevice *device,
@@ -142,6 +143,17 @@ fu_vbe_device_init(FuVbeDevice *self)
 	fu_device_add_icon(FU_DEVICE(self), "computer");
 }
 
+FuDevice *
+fu_vbe_device_new(FuContext *ctx, const gchar *vbe_method)
+{
+	return FU_DEVICE(g_object_new(FU_TYPE_VBE_DEVICE,
+				      "context",
+				      ctx,
+				      "vbe_method",
+				      vbe_method,
+				      NULL));
+}
+
 static void
 fu_vbe_device_constructed(GObject *obj)
 {
@@ -154,7 +166,7 @@ fu_vbe_device_get_property(GObject *object, guint prop_id, GValue *value, GParam
 {
 	FuVbeDevice *self = FU_VBE_DEVICE(object);
 	switch (prop_id) {
-	case PROP_METHOD:
+	case PROP_VBE_METHOD:
 		g_value_set_string(value, self->vbe_method);
 		break;
 	default:
@@ -171,7 +183,7 @@ fu_vbe_device_set_property(GObject *object,
 {
 	FuVbeDevice *self = FU_VBE_DEVICE(object);
 	switch (prop_id) {
-	case PROP_METHOD:
+	case PROP_VBE_METHOD:
 		if (self->vbe_method)
 			g_free(self->vbe_method);
 		self->vbe_method = g_strdup(g_value_get_string(value));
@@ -195,39 +207,25 @@ fu_vbe_device_finalize(GObject *object)
 static void
 fu_vbe_device_class_init(FuVbeDeviceClass *klass)
 {
-// 	GParamSpec *pspec;
+	GParamSpec *pspec;
 	GObjectClass *object_class = G_OBJECT_CLASS(klass);
 	FuDeviceClass *klass_device = FU_DEVICE_CLASS(klass);
 
 	object_class->get_property = fu_vbe_device_get_property;
 	object_class->set_property = fu_vbe_device_set_property;
-#if 0
-	/**
-	 * FuVbeDevice:region:
-	 *
-	 * The IFD region that's being managed.
-	 */
-	pspec = g_param_spec_uint("region",
-				  NULL,
-				  NULL,
-				  0,
-				  G_MAXUINT,
-				  0,
-				  G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_NAME);
-	g_object_class_install_property(object_class, PROP_REGION, pspec);
 
 	/**
-	 * FuVbeDevice:flashctx:
+	 * FuVbeDevice:vbe_method:
 	 *
-	 * The JSON root member for the device.
+	 * The VBE method being used (e.g. "mmc-simple").
 	 */
-	pspec =
-	    g_param_spec_pointer("flashctx",
-				 NULL,
-				 NULL,
-				 G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_NAME);
-	g_object_class_install_property(object_class, PROP_FLASHCTX, pspec);
-#endif
+	pspec = g_param_spec_string("vbe-method", NULL,
+		"Method used to update firmware (e.g. 'mmc-simple'",
+		NULL,
+		G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY |
+		G_PARAM_STATIC_NAME);
+	g_object_class_install_property(object_class, PROP_VBE_METHOD, pspec);
+
 	object_class->constructed = fu_vbe_device_constructed;
 	object_class->finalize = fu_vbe_device_finalize;
 	klass_device->set_quirk_kv = fu_vbe_device_set_quirk_kv;
