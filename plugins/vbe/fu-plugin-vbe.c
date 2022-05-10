@@ -11,6 +11,7 @@
 
 #include <fwupdplugin.h>
 #include <libfdt.h>
+#include "fu-vbe-device.h"
 
 /* File to use for system information */
 #define SYSTEM_DT	"system.dtb"
@@ -20,6 +21,7 @@
 
 struct FuPluginData {
 	gchar *vbe_dir;
+	const gchar *vbe_method;
 };
 
 static void
@@ -39,9 +41,10 @@ fu_plugin_vbe_destroy(FuPlugin *plugin)
 		g_free(priv->vbe_dir);
 }
 
-static gboolean process_system(gchar *fdt, gsize fdt_len, GError **error)
+static gboolean process_system(FuPluginData *priv, gchar *fdt, gsize fdt_len,
+			       GError **error)
 {
-	const char *compat;
+	const char *compat, *p;
 	int ret, node, len;
 
 	ret = fdt_check_header(fdt);
@@ -66,11 +69,19 @@ static gboolean process_system(gchar *fdt, gsize fdt_len, GError **error)
 	}
 	compat = fdt_getprop(fdt, node, "compatible", &len);
 	if (!compat) {
-		g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_INVALID_FILE,
-			    "Unknown update mechanism (%s)", fdt_strerror(len));
+		g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_NOT_SUPPORTED,
+			    "Missing update mechanism (%s)", fdt_strerror(len));
 		return FALSE;
 	}
-	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "Update mechanism: %s", compat);
+	p = strchr(compat, ',');
+	if (!p) {
+		g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_NOT_SUPPORTED,
+			    "Invalid update mechanism (%s)", compat);
+		return FALSE;
+	}
+	priv->vbe_method = p + 1;
+	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "Update mechanism: %s",
+	      priv->vbe_method);
 
 	return TRUE;
 }
@@ -95,12 +106,31 @@ fu_plugin_vbe_startup(FuPlugin *plugin, GError **error)
 		return FALSE;
 	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "Processing system DT '%s'",
 	      bfname);
-	if (!process_system(buf, len, error)) {
+	if (!process_system(priv, buf, len, error)) {
 		g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "Failed: %s",
 		      (*error)->message);
 		return FALSE;
 	}
 
+	return TRUE;
+}
+
+static gboolean
+fu_plugin_vbe_coldplug(FuPlugin *plugin, GError **error)
+{
+	FuPluginData *priv = fu_plugin_get_data(plugin);
+	g_autoptr(FuDevice) dev = NULL;
+
+	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "coldplug");
+	fu_device_set_id(dev, priv->vbe_method);
+	fu_device_add_guid(dev, priv->vbe_method);
+// 	fu_device_add_guid(dev, "ea1b96eb-a430-4033-8708-498b6d98178b");
+	fu_device_set_version(dev, "1.2.3");
+	fu_device_set_version_lowest(dev, "1.2.2");
+	fu_device_set_version_bootloader(dev, "0.1.2");
+	fu_device_add_icon(dev, "computer");
+	fu_device_add_flag(dev, FWUPD_DEVICE_FLAG_UPDATABLE);
+	fu_plugin_device_add(plugin, dev);
 	return TRUE;
 }
 
@@ -111,4 +141,5 @@ fu_plugin_init_vfuncs(FuPluginVfuncs *vfuncs)
 	vfuncs->init = fu_plugin_vbe_init;
 	vfuncs->destroy = fu_plugin_vbe_destroy;
 	vfuncs->startup = fu_plugin_vbe_startup;
+	vfuncs->coldplug = fu_plugin_vbe_coldplug;
 }
