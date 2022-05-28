@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright 2017 Richard Hughes <richard@hughsie.com> -->
+<component type="firmware">
+  <id>com.Vbe.Laptop.firmware</id>
+  <name>VBE BoardFirmware</name>
+  <summary>System firmware for a board, for use with VBE</summary>
+  <description>
+    <p>
+      The board can be updated using VBE.
+    </p>
+  </description>
+  <provides>
+    <!-- this is a suitable HWID, found using `fwupdmgr hwids` -->
+    <firmware type="flashed">ea1b96eb-a430-4033-8708-498b6d98178b</firmware>
+  </provides>
+  <url type="homepage">http://www.TBD.co.uk/</url>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>Proprietary</project_license> <!-- FIXME? -->
+  <developer_name>Vbe</developer_name>
+  <releases>
+    <release urgency="high" version="1.2.3" date="2017-08-15">
+      <checksum filename="firmware.tar" target="content"/>
+      <description>
+        <p>
+          This release updates firmware to version 1.2.3 which includes support
+	  for a mythical new feature.
+        </p>
+      </description>
+    </release>
+  </releases>
+
+  <!-- this script is run with bubblewrap, the old firmware is in /boot -->
+  <custom>
+    <value key="fwupd::BuilderScript">startup.sh</value>
+    <value key="fwupd::BuilderOutput">firmware.vbe.bin</value>
+  </custom>
+
+  <!-- only newer versions of fwupd know how to write to this hardware -->
+  <requires>
+    <id compare="ge" version="1.0.1">org.freedesktop.fwupd</id>
+  </requires>
+
+</component>
