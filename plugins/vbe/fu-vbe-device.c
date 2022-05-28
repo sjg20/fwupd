@@ -45,6 +45,7 @@ fu_vbe_device_probe(FuDevice *device, GError **error)
 	const gchar *dev_name = NULL;
 	const gchar *sysfs_path = NULL;
 
+	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "probe %p", device);
 	/* FuUdevDevice->probe */
 	if (!FU_DEVICE_CLASS(fu_vbe_device_parent_class)->probe(device, error))
 		return FALSE;
@@ -67,6 +68,7 @@ fu_vbe_device_probe(FuDevice *device, GError **error)
 static gboolean
 fu_vbe_device_open(FuDevice *device, GError **error)
 {
+	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "open");
 	return TRUE;
 }
 
@@ -86,6 +88,7 @@ fu_vbe_device_prepare(FuDevice *device,
 	g_autofree gchar *localstatedir = NULL;
 	g_autofree gchar *basename = NULL;
 
+	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "prepare");
 	/* if the original firmware doesn't exist, grab it now */
 	basename = g_strdup_printf("vbe-%s.bin", fu_device_get_id(device));
 	localstatedir = fu_common_get_path(FU_PATH_KIND_LOCALSTATEDIR_PKG);
