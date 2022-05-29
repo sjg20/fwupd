@@ -1,0 +1,11 @@
+/dts-v1/;
+
+/ {
+	chosen {
+		fwupd {
+			firmware {
+				compatible = "fwupd,mmc-simple";
+			};
+		};
+	};
+};
