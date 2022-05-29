@@ -106,8 +106,10 @@ fu_plugin_vbe_startup(FuPlugin *plugin, GError **error)
 
 	/* Read in the system info */
 	bfname = g_build_filename(priv->vbe_dir, SYSTEM_DT, NULL);
-	if (!g_file_get_contents(bfname, &buf, &len, error))
+	if (!g_file_get_contents(bfname, &buf, &len, error)) {
+		g_warning("Cannot find system DT '%s'", bfname);
 		return FALSE;
+	}
 	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "Processing system DT '%s'",
 	      bfname);
 	if (!process_system(priv, buf, len, error)) {
