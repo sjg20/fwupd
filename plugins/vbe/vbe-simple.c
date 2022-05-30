@@ -11,6 +11,9 @@
 
 #include "config.h"
 
+#include <errno.h>
+#include <fcntl.h>
+
 #include <ctype.h>
 #include <libfdt.h>
 #include <stdio.h>
@@ -18,12 +21,29 @@
 #include "fu-plugin-vbe.h"
 #include "vbe-simple.h"
 
+/**
+ * struct _FuVbeSimpleDevice - Information for the 'simple' VBE device
+ *
+ * @parent_instance: FuDevice parent device
+ * @vbe_method: Name of method ("simple")
+ * @fdt: Device tree containing the info
+ * @node: Node containing the info for this device
+ * @storage: Storage device name (e.g. "mmc1")
+ * @devname: Device name (e.g. /dev/mmcblk1)
+ * @block_start: Start block number for firmware
+ * @block_end: End block number for firmware
+ * @fd: File descriptor, if the device is open
+ */
 struct _FuVbeSimpleDevice {
-	FuUdevDevice parent_instance;
+	FuDevice parent_instance;
 	char *vbe_method;
 	char *fdt;
 	int node;
 	const gchar *storage;
+	const gchar *devname;
+	off_t block_start;
+	off_t block_count;
+	int fd;
 };
 
 G_DEFINE_TYPE(FuVbeSimpleDevice, fu_vbe_simple_device, FU_TYPE_DEVICE)
@@ -51,6 +71,26 @@ static int trailing_strtoln_end(const char *str, const char *end,
 	return -1;
 }
 
+/**
+ * fdt_get_u32() - Get a 32-bit integer value from the device tree
+ *
+ * @fdt: Device tree to read from
+ * @node: Node offset to read from
+ * @prop_name: Name of property to read
+ * @return value, if found, else -1
+ */
+static long fdt_get_u32(const char *fdt, int node, const char *prop_name)
+{
+	const fdt32_t *val;
+	int len;
+
+	val = fdt_getprop(fdt, node, prop_name, &len);
+	if (!val)
+		return -1;
+
+	return fdt32_to_cpu(*val);
+}
+
 static gboolean
 fu_vbe_simple_device_set_quirk_kv(FuDevice *device,
 				const gchar *key,
@@ -74,7 +114,6 @@ fu_vbe_simple_device_probe(FuDevice *device, GError **error)
 	struct _FuVbeSimpleDevice *dev = FU_VBE_SIMPLE_DEVICE(device);
 	const char *end;
 	int devnum, len;
-	g_autofree char *devname = NULL;
 
 	g_info("Probing device %s", dev->vbe_method);
 	dev->storage = fdt_getprop(dev->fdt, dev->node, "storage", &len);
@@ -102,14 +141,25 @@ fu_vbe_simple_device_probe(FuDevice *device, GError **error)
 	len = end - dev->storage;
 
 	if (!strncmp("mmc", dev->storage, len)) {
-		devname = g_strdup_printf("/dev/mmcblk%d", devnum);
+		dev->devname = g_strdup_printf("/dev/mmcblk%d", devnum);
 	} else {
 		g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_NOT_SUPPORTED,
 			    "Unsupported 'storage' media '%s'",
 		            dev->storage);
 		return FALSE;
 	}
-	g_info("Selected device '%s'", devname);
+	dev->block_start = fdt_get_u32(dev->fdt, dev->node, "block-start");
+	dev->block_count = fdt_get_u32(dev->fdt, dev->node, "block-count");
+	if (dev->block_start < 0 || dev->block_count < 0) {
+		g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_NOT_SUPPORTED,
+			    "Invalid/missing block start / count (%#jx / %#jx)",
+		            (uintmax_t)dev->block_start,
+			    (uintmax_t)dev->block_count);
+		return FALSE;
+	}
+
+	g_info("Selected device '%s', block %#jx, count %#jx", dev->devname,
+	       (uintmax_t)dev->block_start,(uintmax_t)dev->block_count);
 
 	return TRUE;
 }
@@ -117,7 +167,17 @@ fu_vbe_simple_device_probe(FuDevice *device, GError **error)
 static gboolean
 fu_vbe_simple_device_open(FuDevice *device, GError **error)
 {
+	struct _FuVbeSimpleDevice *dev = FU_VBE_SIMPLE_DEVICE(device);
+
 	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "open");
+	dev->fd = open(dev->devname, O_RDWR);
+	if (dev->fd == -1) {
+		g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_NOT_SUPPORTED,
+			    "Cannot open file '%s' (%s)", dev->devname,
+			    strerror(errno));
+		return FALSE;
+	}
+
 	return TRUE;
 }
 
