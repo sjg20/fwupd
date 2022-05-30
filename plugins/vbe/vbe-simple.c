@@ -21,6 +21,8 @@
 #include "fu-plugin-vbe.h"
 #include "vbe-simple.h"
 
+#define DEBUG 0
+
 /**
  * struct _FuVbeSimpleDevice - Information for the 'simple' VBE device
  *
@@ -153,6 +155,9 @@ fu_vbe_simple_device_open(FuDevice *device, GError **error)
 	struct _FuVbeSimpleDevice *dev = FU_VBE_SIMPLE_DEVICE(device);
 
 	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "open");
+	if (DEBUG)
+		return TRUE;
+
 	dev->fd = open(dev->devname, O_RDWR);
 	if (dev->fd == -1) {
 		g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_NOT_SUPPORTED,
@@ -170,6 +175,8 @@ fu_vbe_simple_device_close(FuDevice *device, GError **error)
 	struct _FuVbeSimpleDevice *dev = FU_VBE_SIMPLE_DEVICE(device);
 
 	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "close");
+	if (DEBUG)
+		return TRUE;
 	close(dev->fd);
 	return TRUE;
 }
@@ -180,27 +187,7 @@ fu_vbe_simple_device_prepare(FuDevice *device,
 			   FwupdInstallFlags flags,
 			   GError **error)
 {
-	g_autofree gchar *firmware_orig = NULL;
-	g_autofree gchar *localstatedir = NULL;
-	g_autofree gchar *basename = NULL;
-
 	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "prepare");
-	/* if the original firmware doesn't exist, grab it now */
-	basename = g_strdup_printf("vbe-%s.bin", fu_device_get_id(device));
-	localstatedir = fu_common_get_path(FU_PATH_KIND_LOCALSTATEDIR_PKG);
-	firmware_orig = g_build_filename(localstatedir, "builder", basename, NULL);
-	if (!fu_common_mkdir_parent(firmware_orig, error))
-		return FALSE;
-	if (!g_file_test(firmware_orig, G_FILE_TEST_EXISTS)) {
-		gsize flash_size = fu_device_get_firmware_size_max(device);
-		g_autofree guint8 *newcontents = g_malloc0(flash_size);
-		g_autoptr(GBytes) buf = NULL;
-
-		fu_progress_set_status(progress, FWUPD_STATUS_DEVICE_READ);
-		buf = g_bytes_new_static(newcontents, flash_size);
-		if (!fu_common_set_contents_bytes(firmware_orig, buf, error))
-			return FALSE;
-	}
 
 	return TRUE;
 }
@@ -216,19 +203,12 @@ fu_vbe_simple_device_write_firmware(FuDevice *device,
 
 	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "write");
 	for (i = 0; i < 5; i++) {
-		fu_progress_set_percentage_full(fu_progress_get_child(progress),
-						i, 5);
+		fu_progress_set_percentage_full(progress, i, 5);
 	}
+	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "write done");
 
 	/* success */
 	return TRUE;
-}
-
-static void
-fu_vbe_simple_device_set_progress(FuDevice *self, FuProgress *progress)
-{
-	fu_progress_set_id(progress, G_STRLOC);
-	fu_progress_add_step(progress, FWUPD_STATUS_DEVICE_WRITE, 100); /* write */
 }
 
 static void
@@ -368,7 +348,6 @@ fu_vbe_simple_device_class_init(FuVbeSimpleDeviceClass *klass)
 	dev->probe = fu_vbe_simple_device_probe;
 	dev->open = fu_vbe_simple_device_open;
 	dev->close = fu_vbe_simple_device_close;
-	dev->set_progress = fu_vbe_simple_device_set_progress;
 	dev->prepare = fu_vbe_simple_device_prepare;
 	dev->write_firmware = fu_vbe_simple_device_write_firmware;
 }
