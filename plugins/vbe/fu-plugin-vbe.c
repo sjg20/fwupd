@@ -28,23 +28,26 @@ struct FuPluginData {
 
 /** Information about available VBE drivers
  *
- *
+ * @name: Name of driver (for compatible string "fwupd,simple" this is "simple")
+ * @vendor: Vendor name
+ * @vendor_id: Vendor ID, with have a "VBE:" prefix
+ * @version: Version of this driver in x.y.z numeric notation
+ * @version_lowest: Lowest version of firmware this device can accept
+ * @new_func: Function to call to create the device
+ * @guid: GUID to use to identify this device and updates intended for it
  */
 struct VbeDriver {
 	const gchar *name;
 	const gchar *vendor;
 	const gchar *vendor_id;
-	const gchar *version;
 	const gchar *version_lowest;
-	const gchar *version_bootloader;
 	vbe_device_new_func new_func;
 	const gchar *guid;
 };
 
-/** List of methods */
+/** List of available VBE drivers */
 const struct VbeDriver driver_list[] = {
-	{ "simple", "U-Boot", "VBE:U-Boot", "0.0.1", NULL, NULL,
-		fu_vbe_simple_device_new,
+	{ "simple", "U-Boot", "VBE:U-Boot", "0.0.1", fu_vbe_simple_device_new,
 		"ea1b96eb-a430-4033-8708-498b6d98178b" },
 	{ NULL },
 };
@@ -214,6 +217,7 @@ fu_plugin_vbe_coldplug(FuPlugin *plugin, GError **error)
 	     entry = g_list_next(entry)) {
 		const struct VbeDriver *driver;
 		g_autoptr(FuDevice) dev;
+		const gchar *version;
 
 		meth = entry->data;
 		driver = meth->driver;
@@ -227,11 +231,15 @@ fu_plugin_vbe_coldplug(FuPlugin *plugin, GError **error)
 
 		fu_device_add_vendor_id(FU_DEVICE(dev), driver->vendor_id);
 		fu_device_set_version_format(dev, FWUPD_VERSION_FORMAT_TRIPLET);
-		fu_device_set_version(dev, driver->version);
-		fu_device_set_version_lowest(dev,
-					     driver->version_lowest ? driver->version_lowest : "0.0.1");
-		fu_device_set_version_bootloader(dev,
-		     driver->version_bootloader ? driver->version_bootloader : "0.0.1");
+		fu_device_set_version_lowest(dev, driver->version_lowest);
+
+		version = fdt_getprop(priv->fdt, meth->node, "cur-version",
+				      NULL);
+		fu_device_set_version(dev, version);
+
+		version = fdt_getprop(priv->fdt, meth->node,
+				      "bootloader-version", NULL);
+		fu_device_set_version_bootloader(dev, version);
 		fu_device_add_icon(dev, "computer");
 		fu_device_add_flag(dev, FWUPD_DEVICE_FLAG_UPDATABLE);
 		fu_plugin_device_add(plugin, dev);

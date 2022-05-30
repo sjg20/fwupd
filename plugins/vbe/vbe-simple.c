@@ -11,6 +11,10 @@
 
 #include "config.h"
 
+#include <ctype.h>
+#include <libfdt.h>
+#include <stdio.h>
+
 #include "fu-plugin-vbe.h"
 #include "vbe-simple.h"
 
@@ -19,9 +23,33 @@ struct _FuVbeSimpleDevice {
 	char *vbe_method;
 	char *fdt;
 	int node;
+	const gchar *storage;
 };
 
 G_DEFINE_TYPE(FuVbeSimpleDevice, fu_vbe_simple_device, FU_TYPE_DEVICE)
+
+static int trailing_strtoln_end(const char *str, const char *end,
+				char const **endp)
+{
+	const char *p;
+
+	if (!end)
+		end = str + strlen(str);
+	p = end - 1;
+	if (p > str && isdigit(*p)) {
+		do {
+			if (!isdigit(p[-1])) {
+				if (endp)
+					*endp = p;
+				return atoi(p);
+			}
+		} while (--p > str);
+	}
+	if (endp)
+		*endp = end;
+
+	return -1;
+}
 
 static gboolean
 fu_vbe_simple_device_set_quirk_kv(FuDevice *device,
@@ -43,26 +71,46 @@ fu_vbe_simple_device_set_quirk_kv(FuDevice *device,
 static gboolean
 fu_vbe_simple_device_probe(FuDevice *device, GError **error)
 {
-	const gchar *dev_name = NULL;
-	const gchar *sysfs_path = NULL;
+	struct _FuVbeSimpleDevice *dev = FU_VBE_SIMPLE_DEVICE(device);
+	const char *end;
+	int devnum, len;
+	g_autofree char *devname = NULL;
 
-	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "probe %p", device);
-	/* FuUdevDevice->probe */
-	if (!FU_DEVICE_CLASS(fu_vbe_simple_device_parent_class)->probe(device, error))
+	g_info("Probing device %s", dev->vbe_method);
+	dev->storage = fdt_getprop(dev->fdt, dev->node, "storage", &len);
+	if (!dev->storage) {
+		g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_NOT_SUPPORTED,
+			    "Missing 'storage' property");
 		return FALSE;
+	}
 
-	sysfs_path = fu_udev_device_get_sysfs_path(FU_UDEV_DEVICE(device));
-	if (sysfs_path != NULL) {
-		g_autofree gchar *physical_id = NULL;
-		physical_id = g_strdup_printf("DEVNAME=%s", sysfs_path);
-		fu_device_set_physical_id(device, physical_id);
+	/* sanity check */
+	if (len > 256) {
+		g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_NOT_SUPPORTED,
+			    "'storage' property exceeds maximum size");
+		return FALSE;
 	}
-	dev_name = fu_udev_device_get_sysfs_attr(FU_UDEV_DEVICE(device), "name", NULL);
-	if (dev_name != NULL) {
-		fu_device_add_instance_id_full(device,
-					       dev_name,
-					       FU_DEVICE_INSTANCE_FLAG_ONLY_QUIRKS);
+
+	/* Obtain the 1 from "mmc1" */
+	devnum = trailing_strtoln_end(dev->storage, NULL, &end);
+	if (devnum == -1) {
+		g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_NOT_SUPPORTED,
+			    "Cannot parse 'storage' property '%s' - expect <dev><num>",
+		            dev->storage);
+		return FALSE;
 	}
+	len = end - dev->storage;
+
+	if (!strncmp("mmc", dev->storage, len)) {
+		devname = g_strdup_printf("/dev/mmcblk%d", devnum);
+	} else {
+		g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_NOT_SUPPORTED,
+			    "Unsupported 'storage' media '%s'",
+		            dev->storage);
+		return FALSE;
+	}
+	g_info("Selected device '%s'", devname);
+
 	return TRUE;
 }
 

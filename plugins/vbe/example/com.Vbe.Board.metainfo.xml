@@ -18,7 +18,7 @@
   <project_license>Proprietary</project_license> <!-- FIXME? -->
   <developer_name>Vbe</developer_name>
   <releases>
-    <release urgency="high" version="1.2.3" date="2017-08-15">
+    <release urgency="high" version="1.2.4" date="2017-08-15">
       <checksum filename="firmware.tar" target="content"/>
       <description>
         <p>
