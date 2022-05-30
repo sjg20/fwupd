@@ -184,6 +184,7 @@ fu_vbe_simple_device_open(FuDevice *device, GError **error)
 static gboolean
 fu_vbe_simple_device_close(FuDevice *device, GError **error)
 {
+	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "close");
 	return TRUE;
 }
 
