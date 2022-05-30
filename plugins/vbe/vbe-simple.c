@@ -92,23 +92,6 @@ static long fdt_get_u32(const char *fdt, int node, const char *prop_name)
 }
 
 static gboolean
-fu_vbe_simple_device_set_quirk_kv(FuDevice *device,
-				const gchar *key,
-				const gchar *value,
-				GError **error)
-{
-	if (g_strcmp0(key, "PciBcrAddr") == 0) {
-		guint64 tmp = 0;
-		if (!fu_common_strtoull_full(value, &tmp, 0, G_MAXUINT32, error))
-			return FALSE;
-		fu_device_set_metadata_integer(device, "PciBcrAddr", tmp);
-		return TRUE;
-	}
-	g_set_error_literal(error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED, "no supported");
-	return FALSE;
-}
-
-static gboolean
 fu_vbe_simple_device_probe(FuDevice *device, GError **error)
 {
 	struct _FuVbeSimpleDevice *dev = FU_VBE_SIMPLE_DEVICE(device);
@@ -184,7 +167,10 @@ fu_vbe_simple_device_open(FuDevice *device, GError **error)
 static gboolean
 fu_vbe_simple_device_close(FuDevice *device, GError **error)
 {
+	struct _FuVbeSimpleDevice *dev = FU_VBE_SIMPLE_DEVICE(device);
+
 	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "close");
+	close(dev->fd);
 	return TRUE;
 }
 
@@ -235,10 +221,7 @@ fu_vbe_simple_device_set_progress(FuDevice *self, FuProgress *progress)
 {
 	fu_progress_set_id(progress, G_STRLOC);
 	fu_progress_add_flag(progress, FU_PROGRESS_FLAG_GUESSED);
-	fu_progress_add_step(progress, FWUPD_STATUS_DEVICE_RESTART, 0); /* detach */
 	fu_progress_add_step(progress, FWUPD_STATUS_DEVICE_WRITE, 100); /* write */
-	fu_progress_add_step(progress, FWUPD_STATUS_DEVICE_RESTART, 0); /* attach */
-	fu_progress_add_step(progress, FWUPD_STATUS_DEVICE_BUSY, 0);	/* reload */
 }
 
 static void
@@ -375,7 +358,6 @@ fu_vbe_simple_device_class_init(FuVbeSimpleDeviceClass *klass)
 
 	objc->constructed = fu_vbe_simple_device_constructed;
 	objc->finalize = fu_vbe_simple_device_finalize;
-	dev->set_quirk_kv = fu_vbe_simple_device_set_quirk_kv;
 	dev->probe = fu_vbe_simple_device_probe;
 	dev->open = fu_vbe_simple_device_open;
 	dev->close = fu_vbe_simple_device_close;
