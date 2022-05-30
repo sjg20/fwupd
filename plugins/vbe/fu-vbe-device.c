@@ -136,8 +136,6 @@ fu_vbe_device_init(FuVbeDevice *self)
 {
 	fu_device_add_flag(FU_DEVICE(self), FWUPD_DEVICE_FLAG_INTERNAL);
 	fu_device_add_flag(FU_DEVICE(self), FWUPD_DEVICE_FLAG_UPDATABLE);
-	fu_device_add_flag(FU_DEVICE(self), FWUPD_DEVICE_FLAG_NEEDS_SHUTDOWN);
-	fu_device_add_flag(FU_DEVICE(self), FWUPD_DEVICE_FLAG_REQUIRE_AC);
 	fu_device_add_protocol(FU_DEVICE(self), "org.vbe");
 	fu_device_add_internal_flag(FU_DEVICE(self), FU_DEVICE_INTERNAL_FLAG_ENSURE_SEMVER);
 	fu_device_add_internal_flag(FU_DEVICE(self), FU_DEVICE_INTERNAL_FLAG_MD_SET_SIGNED);
@@ -211,11 +209,11 @@ static void
 fu_vbe_device_class_init(FuVbeDeviceClass *klass)
 {
 	GParamSpec *pspec;
-	GObjectClass *object_class = G_OBJECT_CLASS(klass);
-	FuDeviceClass *klass_device = FU_DEVICE_CLASS(klass);
+	GObjectClass *objc = G_OBJECT_CLASS(klass);
+	FuDeviceClass *dev = FU_DEVICE_CLASS(klass);
 
-	object_class->get_property = fu_vbe_device_get_property;
-	object_class->set_property = fu_vbe_device_set_property;
+	objc->get_property = fu_vbe_device_get_property;
+	objc->set_property = fu_vbe_device_set_property;
 
 	/**
 	 * FuVbeDevice:vbe_method:
@@ -227,15 +225,15 @@ fu_vbe_device_class_init(FuVbeDeviceClass *klass)
 		NULL,
 		G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY |
 		G_PARAM_STATIC_NAME);
-	g_object_class_install_property(object_class, PROP_VBE_METHOD, pspec);
+	g_object_class_install_property(objc, PROP_VBE_METHOD, pspec);
 
-	object_class->constructed = fu_vbe_device_constructed;
-	object_class->finalize = fu_vbe_device_finalize;
-	klass_device->set_quirk_kv = fu_vbe_device_set_quirk_kv;
-	klass_device->probe = fu_vbe_device_probe;
-	klass_device->open = fu_vbe_device_open;
-	klass_device->close = fu_vbe_device_close;
-	klass_device->set_progress = fu_vbe_device_set_progress;
-	klass_device->prepare = fu_vbe_device_prepare;
-	klass_device->write_firmware = fu_vbe_device_write_firmware;
+	objc->constructed = fu_vbe_device_constructed;
+	objc->finalize = fu_vbe_device_finalize;
+	dev->set_quirk_kv = fu_vbe_device_set_quirk_kv;
+	dev->probe = fu_vbe_device_probe;
+	dev->open = fu_vbe_device_open;
+	dev->close = fu_vbe_device_close;
+	dev->set_progress = fu_vbe_device_set_progress;
+	dev->prepare = fu_vbe_device_prepare;
+	dev->write_firmware = fu_vbe_device_write_firmware;
 }

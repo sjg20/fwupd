@@ -130,6 +130,8 @@ fu_plugin_vbe_coldplug(FuPlugin *plugin, GError **error)
 
 	dev = fu_vbe_device_new(ctx, priv->vbe_method);
 	fu_device_set_id(dev, priv->vbe_method);
+
+	// create the correct driver based on the DT info
 	fu_device_set_name(dev, "VBE (Verified Boot for Embedded)");
 	fu_device_set_vendor(dev, "My vendor");
 // 	fu_device_add_guid(dev, priv->vbe_method);

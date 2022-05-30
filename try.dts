@@ -4,7 +4,7 @@
 	chosen {
 		fwupd {
 			firmware {
-				compatible = "fwupd,mmc-simple";
+				compatible = "fwupd,simple";
 			};
 		};
 	};
