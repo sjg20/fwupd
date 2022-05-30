@@ -19,6 +19,7 @@ G_DECLARE_FINAL_TYPE(FuVbeSimpleDevice, fu_vbe_simple_device, FU,
 struct vbe_ctx;
 
 FuDevice *
-fu_vbe_simple_device_new(FuContext *ctx, const gchar *vbe_method);
+fu_vbe_simple_device_new(FuContext *ctx, const gchar *vbe_method,
+			 const gchar *fdt, int node);
 
 #endif /* __FU_VBE_DEVICE_H */

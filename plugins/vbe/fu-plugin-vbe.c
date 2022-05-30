@@ -11,22 +11,52 @@
 
 #include <fwupdplugin.h>
 #include <libfdt.h>
+#include "fu-plugin-vbe.h"
 #include "vbe-simple.h"
 
 /* File to use for system information where the system has no device tree */
 #define SYSTEM_DT	"system.dtb"
 
-/* Path to the update info in the system info */
+/* Path to the method subnodes in the system info */
 #define NODE_PATH	"/chosen/fwupd"
 
-/** Information about an update method with an associated device */
-struct FuVbeMethod {
-	const gchar *vbe_method;
-};
-
 struct FuPluginData {
+	gchar *fdt;
 	gchar *vbe_dir;
 	GList *methods;
+};
+
+/** Information about available VBE drivers
+ *
+ *
+ */
+struct VbeDriver {
+	const gchar *name;
+	const gchar *vendor;
+	const gchar *vendor_id;
+	const gchar *version;
+	const gchar *version_lowest;
+	const gchar *version_bootloader;
+	vbe_device_new_func new_func;
+	const gchar *guid;
+};
+
+/** List of methods */
+const struct VbeDriver driver_list[] = {
+	{ "simple", "U-Boot", "VBE:U-Boot", "0.0.1", NULL, NULL,
+		fu_vbe_simple_device_new,
+		"ea1b96eb-a430-4033-8708-498b6d98178b" },
+	{ NULL },
+};
+
+/** Information about an update method with an associated device
+ * @vbe_method: Method name, e.g. "fwupd,simple"
+ * @node: Offset of this method in device tree (so it can read its info)
+ */
+struct FuVbeMethod {
+	const gchar *vbe_method;
+	int node;
+	const struct VbeDriver *driver;
 };
 
 static void
@@ -47,11 +77,14 @@ fu_plugin_vbe_destroy(FuPlugin *plugin)
 		g_free(priv->vbe_dir);
 }
 
-static gboolean vbe_create_device(gchar *fdt, int node,
+static gboolean vbe_locate_device(gchar *fdt, int node,
 				  struct FuVbeMethod **methp)
 {
-	struct FuVbeMethod *meth;
+	struct FuVbeMethod *meth = NULL;
+	const struct VbeDriver *driver;
+	const gchar *method_name;
 	const char *compat, *p;
+
 	int len;
 
 	compat = fdt_getprop(fdt, node, "compatible", &len);
@@ -64,11 +97,21 @@ static gboolean vbe_create_device(gchar *fdt, int node,
 		g_error("Invalid update mechanism (%s)", compat);
 		return FALSE;
 	}
+	method_name = p + 1;
 
-	meth = g_malloc(sizeof(struct FuVbeMethod));
-	meth->vbe_method = p + 1;
-	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "Update mechanism: %s",
-	      meth->vbe_method);
+	/* find this update mechanism */
+	for (driver = driver_list; driver->name; driver++) {
+		if (!strcmp(method_name, driver->name)) {
+			meth = g_malloc(sizeof(struct FuVbeMethod));
+			meth->vbe_method = p + 1;
+			meth->node = node;
+			meth->driver = driver;
+			g_info("Update mechanism: %s", meth->vbe_method);
+			*methp = meth;
+			return TRUE;
+		}
+	}
+	g_error("No driver for VBE method '%s'", method_name);
 
 	return FALSE;
 }
@@ -106,10 +149,10 @@ static gboolean process_system(FuPluginData *priv, gchar *fdt, gsize fdt_len,
 	     node = fdt_next_subnode(fdt, node)) {
 		struct FuVbeMethod *meth;
 
-		if (vbe_create_device(fdt, node, &meth)) {
+		if (vbe_locate_device(fdt, node, &meth)) {
 			found++;
 		} else {
-			g_warning("Cannot create device for node '%s'",
+			g_warning("Cannot locate device for node '%s'",
 				  fdt_get_name(fdt, node, NULL));
 		}
 		priv->methods = g_list_append(priv->methods, meth);
@@ -148,6 +191,7 @@ fu_plugin_vbe_startup(FuPlugin *plugin, GError **error)
 	}
 	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "Processing system DT '%s'",
 	      bfname);
+	priv->fdt = buf;
 	if (!process_system(priv, buf, len, error)) {
 		g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "Failed: %s",
 		      (*error)->message);
@@ -162,27 +206,38 @@ fu_plugin_vbe_coldplug(FuPlugin *plugin, GError **error)
 {
 	FuContext *ctx = fu_plugin_get_context(plugin);
 	FuPluginData *priv = fu_plugin_get_data(plugin);
-	g_autoptr(FuDevice) dev;
+	struct FuVbeMethod *meth;
+	GList *entry;
 
-	dev = fu_vbe_simple_device_new(ctx, priv->vbe_method);
-	fu_device_set_id(dev, priv->vbe_method);
+	/* Create a driver for each method */
+	for (entry = g_list_first(priv->methods); entry;
+	     entry = g_list_next(entry)) {
+		const struct VbeDriver *driver;
+		g_autoptr(FuDevice) dev;
 
-	// create the correct driver based on the DT info
-	fu_device_set_name(dev, "VBE (Verified Boot for Embedded)");
-	fu_device_set_vendor(dev, "My vendor");
-// 	fu_device_add_guid(dev, priv->vbe_method);
-	fu_device_add_guid(dev, "ea1b96eb-a430-4033-8708-498b6d98178b");
+		meth = entry->data;
+		driver = meth->driver;
+		dev = driver->new_func(ctx, meth->vbe_method, priv->fdt,
+				       meth->node);
+		fu_device_set_id(dev, meth->vbe_method);
 
-	fu_device_add_vendor_id(FU_DEVICE(dev), "the-id");
+		fu_device_set_name(dev, driver->name);
+		fu_device_set_vendor(dev, driver->vendor);
+		fu_device_add_guid(dev, driver->guid);
 
-	fu_device_set_version_format(dev, FWUPD_VERSION_FORMAT_TRIPLET);
-	fu_device_set_version(dev, "0.0.1");
-	fu_device_set_version_lowest(dev, "0.0.1");
-	fu_device_set_version_bootloader(dev, "0.0.1");
-	fu_device_add_icon(dev, "computer");
-	fu_device_add_flag(dev, FWUPD_DEVICE_FLAG_UPDATABLE);
-	fu_plugin_device_add(plugin, dev);
-	g_object_ref(dev);
+		fu_device_add_vendor_id(FU_DEVICE(dev), driver->vendor_id);
+		fu_device_set_version_format(dev, FWUPD_VERSION_FORMAT_TRIPLET);
+		fu_device_set_version(dev, driver->version);
+		fu_device_set_version_lowest(dev,
+					     driver->version_lowest ? driver->version_lowest : "0.0.1");
+		fu_device_set_version_bootloader(dev,
+		     driver->version_bootloader ? driver->version_bootloader : "0.0.1");
+		fu_device_add_icon(dev, "computer");
+		fu_device_add_flag(dev, FWUPD_DEVICE_FLAG_UPDATABLE);
+		fu_plugin_device_add(plugin, dev);
+		g_object_ref(dev);
+	}
+
 	return TRUE;
 }
 

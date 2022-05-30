@@ -11,16 +11,17 @@
 
 #include "config.h"
 
+#include "fu-plugin-vbe.h"
 #include "vbe-simple.h"
 
 struct _FuVbeSimpleDevice {
 	FuUdevDevice parent_instance;
 	char *vbe_method;
+	char *fdt;
+	int node;
 };
 
 G_DEFINE_TYPE(FuVbeSimpleDevice, fu_vbe_simple_device, FU_TYPE_DEVICE)
-
-enum { PROP_0, PROP_VBE_METHOD, PROP_LAST };
 
 static gboolean
 fu_vbe_simple_device_set_quirk_kv(FuDevice *device,
@@ -145,13 +146,14 @@ fu_vbe_simple_device_init(FuVbeSimpleDevice *self)
 }
 
 FuDevice *
-fu_vbe_simple_device_new(FuContext *ctx, const gchar *vbe_method)
+fu_vbe_simple_device_new(FuContext *ctx, const gchar *vbe_method,
+			 const gchar *fdt, int node)
 {
 	return FU_DEVICE(g_object_new(FU_TYPE_VBE_SIMPLE_DEVICE,
-				      "context",
-				      ctx,
-				      "vbe_method",
-				      vbe_method,
+				      "context", ctx,
+				      "vbe_method", vbe_method,
+				      "fdt", fdt,
+				      "node", node,
 				      NULL));
 }
 
@@ -169,6 +171,12 @@ fu_vbe_simple_device_get_property(GObject *object, guint prop_id, GValue *value,
 	switch (prop_id) {
 	case PROP_VBE_METHOD:
 		g_value_set_string(value, self->vbe_method);
+		break;
+	case PROP_VBE_FDT:
+		g_value_set_pointer(value, self->fdt);
+		break;
+	case PROP_VBE_NODE:
+		g_value_set_int(value, self->node);
 		break;
 	default:
 		G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -188,6 +196,12 @@ fu_vbe_simple_device_set_property(GObject *object,
 		if (self->vbe_method)
 			g_free(self->vbe_method);
 		self->vbe_method = g_strdup(g_value_get_string(value));
+		break;
+	case PROP_VBE_FDT:
+		self->fdt = g_value_get_pointer(value);
+		break;
+	case PROP_VBE_NODE:
+		self->node = g_value_get_int(value);
 		break;
 	default:
 		G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -226,6 +240,29 @@ fu_vbe_simple_device_class_init(FuVbeSimpleDeviceClass *klass)
 		G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY |
 		G_PARAM_STATIC_NAME);
 	g_object_class_install_property(objc, PROP_VBE_METHOD, pspec);
+
+	/**
+	 * FuVbeSimpleDevice:fdt:
+	 *
+	 * The device tree blob containing the method parameters
+	 */
+	pspec = g_param_spec_pointer("fdt", NULL,
+		"Device tree blob containing method parameters",
+		G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY |
+		G_PARAM_STATIC_NAME);
+	g_object_class_install_property(objc, PROP_VBE_FDT, pspec);
+
+	/**
+	 * FuVbeSimpleDevice:vbe_method:
+	 *
+	 * The VBE method being used (e.g. "mmc-simple").
+	 */
+	pspec = g_param_spec_int("node", NULL,
+		"Node offset within the device tree containing method parameters'",
+		-1, INT_MAX, -1,
+		G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY |
+		G_PARAM_STATIC_NAME);
+	g_object_class_install_property(objc, PROP_VBE_NODE, pspec);
 
 	objc->constructed = fu_vbe_simple_device_constructed;
 	objc->finalize = fu_vbe_simple_device_finalize;
