@@ -212,6 +212,14 @@ fu_vbe_simple_device_write_firmware(FuDevice *device,
 				  FwupdInstallFlags flags,
 				  GError **error)
 {
+	int i;
+
+	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "write");
+	for (i = 0; i < 5; i++) {
+		fu_progress_set_percentage_full(fu_progress_get_child(progress),
+						i, 5);
+	}
+
 	/* success */
 	return TRUE;
 }
@@ -220,7 +228,7 @@ static void
 fu_vbe_simple_device_set_progress(FuDevice *self, FuProgress *progress)
 {
 	fu_progress_set_id(progress, G_STRLOC);
-	fu_progress_add_flag(progress, FU_PROGRESS_FLAG_GUESSED);
+	fu_progress_add_step(progress, FWUPD_STATUS_DEVICE_WRITE, 100); /* write */
 }
 
 static void
