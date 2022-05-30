@@ -11,7 +11,7 @@
 
 #include <fwupdplugin.h>
 #include <libfdt.h>
-#include "fu-vbe-device.h"
+#include "vbe-simple.h"
 
 /* File to use for system information */
 #define SYSTEM_DT	"system.dtb"
@@ -128,7 +128,7 @@ fu_plugin_vbe_coldplug(FuPlugin *plugin, GError **error)
 	FuPluginData *priv = fu_plugin_get_data(plugin);
 	g_autoptr(FuDevice) dev;
 
-	dev = fu_vbe_device_new(ctx, priv->vbe_method);
+	dev = fu_vbe_simple_device_new(ctx, priv->vbe_method);
 	fu_device_set_id(dev, priv->vbe_method);
 
 	// create the correct driver based on the DT info

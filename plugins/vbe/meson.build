@@ -5,7 +5,7 @@ cargs = ['-DG_LOG_DOMAIN="Vbe"']
 shared_module('fu_plugin_vbe',
   fu_hash,
   sources : [
-    'fu-vbe-device.c',
+    'vbe-simple.c',
     'fu-plugin-vbe.c',
   ],
   include_directories : [

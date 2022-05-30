@@ -11,19 +11,19 @@
 
 #include "config.h"
 
-#include "fu-vbe-device.h"
+#include "vbe-simple.h"
 
-struct _FuVbeDevice {
+struct _FuVbeSimpleDevice {
 	FuUdevDevice parent_instance;
 	char *vbe_method;
 };
 
-G_DEFINE_TYPE(FuVbeDevice, fu_vbe_device, FU_TYPE_DEVICE)
+G_DEFINE_TYPE(FuVbeSimpleDevice, fu_vbe_simple_device, FU_TYPE_DEVICE)
 
 enum { PROP_0, PROP_VBE_METHOD, PROP_LAST };
 
 static gboolean
-fu_vbe_device_set_quirk_kv(FuDevice *device,
+fu_vbe_simple_device_set_quirk_kv(FuDevice *device,
 				const gchar *key,
 				const gchar *value,
 				GError **error)
@@ -40,14 +40,14 @@ fu_vbe_device_set_quirk_kv(FuDevice *device,
 }
 
 static gboolean
-fu_vbe_device_probe(FuDevice *device, GError **error)
+fu_vbe_simple_device_probe(FuDevice *device, GError **error)
 {
 	const gchar *dev_name = NULL;
 	const gchar *sysfs_path = NULL;
 
 	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "probe %p", device);
 	/* FuUdevDevice->probe */
-	if (!FU_DEVICE_CLASS(fu_vbe_device_parent_class)->probe(device, error))
+	if (!FU_DEVICE_CLASS(fu_vbe_simple_device_parent_class)->probe(device, error))
 		return FALSE;
 
 	sysfs_path = fu_udev_device_get_sysfs_path(FU_UDEV_DEVICE(device));
@@ -66,20 +66,20 @@ fu_vbe_device_probe(FuDevice *device, GError **error)
 }
 
 static gboolean
-fu_vbe_device_open(FuDevice *device, GError **error)
+fu_vbe_simple_device_open(FuDevice *device, GError **error)
 {
 	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "open");
 	return TRUE;
 }
 
 static gboolean
-fu_vbe_device_close(FuDevice *device, GError **error)
+fu_vbe_simple_device_close(FuDevice *device, GError **error)
 {
 	return TRUE;
 }
 
 static gboolean
-fu_vbe_device_prepare(FuDevice *device,
+fu_vbe_simple_device_prepare(FuDevice *device,
 			   FuProgress *progress,
 			   FwupdInstallFlags flags,
 			   GError **error)
@@ -110,7 +110,7 @@ fu_vbe_device_prepare(FuDevice *device,
 }
 
 static gboolean
-fu_vbe_device_write_firmware(FuDevice *device,
+fu_vbe_simple_device_write_firmware(FuDevice *device,
 				  FuFirmware *firmware,
 				  FuProgress *progress,
 				  FwupdInstallFlags flags,
@@ -121,7 +121,7 @@ fu_vbe_device_write_firmware(FuDevice *device,
 }
 
 static void
-fu_vbe_device_set_progress(FuDevice *self, FuProgress *progress)
+fu_vbe_simple_device_set_progress(FuDevice *self, FuProgress *progress)
 {
 	fu_progress_set_id(progress, G_STRLOC);
 	fu_progress_add_flag(progress, FU_PROGRESS_FLAG_GUESSED);
@@ -132,7 +132,7 @@ fu_vbe_device_set_progress(FuDevice *self, FuProgress *progress)
 }
 
 static void
-fu_vbe_device_init(FuVbeDevice *self)
+fu_vbe_simple_device_init(FuVbeSimpleDevice *self)
 {
 	fu_device_add_flag(FU_DEVICE(self), FWUPD_DEVICE_FLAG_INTERNAL);
 	fu_device_add_flag(FU_DEVICE(self), FWUPD_DEVICE_FLAG_UPDATABLE);
@@ -145,9 +145,9 @@ fu_vbe_device_init(FuVbeDevice *self)
 }
 
 FuDevice *
-fu_vbe_device_new(FuContext *ctx, const gchar *vbe_method)
+fu_vbe_simple_device_new(FuContext *ctx, const gchar *vbe_method)
 {
-	return FU_DEVICE(g_object_new(FU_TYPE_VBE_DEVICE,
+	return FU_DEVICE(g_object_new(FU_TYPE_VBE_SIMPLE_DEVICE,
 				      "context",
 				      ctx,
 				      "vbe_method",
@@ -156,16 +156,16 @@ fu_vbe_device_new(FuContext *ctx, const gchar *vbe_method)
 }
 
 static void
-fu_vbe_device_constructed(GObject *obj)
+fu_vbe_simple_device_constructed(GObject *obj)
 {
-	FuVbeDevice *self = FU_VBE_DEVICE(obj);
+	FuVbeSimpleDevice *self = FU_VBE_SIMPLE_DEVICE(obj);
 	fu_device_add_instance_id(FU_DEVICE(self), "main-system-firmware");
 }
 
 static void
-fu_vbe_device_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec)
+fu_vbe_simple_device_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec)
 {
-	FuVbeDevice *self = FU_VBE_DEVICE(object);
+	FuVbeSimpleDevice *self = FU_VBE_SIMPLE_DEVICE(object);
 	switch (prop_id) {
 	case PROP_VBE_METHOD:
 		g_value_set_string(value, self->vbe_method);
@@ -177,12 +177,12 @@ fu_vbe_device_get_property(GObject *object, guint prop_id, GValue *value, GParam
 }
 
 static void
-fu_vbe_device_set_property(GObject *object,
+fu_vbe_simple_device_set_property(GObject *object,
 				guint prop_id,
 				const GValue *value,
 				GParamSpec *pspec)
 {
-	FuVbeDevice *self = FU_VBE_DEVICE(object);
+	FuVbeSimpleDevice *self = FU_VBE_SIMPLE_DEVICE(object);
 	switch (prop_id) {
 	case PROP_VBE_METHOD:
 		if (self->vbe_method)
@@ -196,27 +196,27 @@ fu_vbe_device_set_property(GObject *object,
 }
 
 static void
-fu_vbe_device_finalize(GObject *object)
+fu_vbe_simple_device_finalize(GObject *object)
 {
-	FuVbeDevice *self = FU_VBE_DEVICE(object);
+	FuVbeSimpleDevice *self = FU_VBE_SIMPLE_DEVICE(object);
 	if (self->vbe_method)
 		g_free(self->vbe_method);
 
-	G_OBJECT_CLASS(fu_vbe_device_parent_class)->finalize(object);
+	G_OBJECT_CLASS(fu_vbe_simple_device_parent_class)->finalize(object);
 }
 
 static void
-fu_vbe_device_class_init(FuVbeDeviceClass *klass)
+fu_vbe_simple_device_class_init(FuVbeSimpleDeviceClass *klass)
 {
 	GParamSpec *pspec;
 	GObjectClass *objc = G_OBJECT_CLASS(klass);
 	FuDeviceClass *dev = FU_DEVICE_CLASS(klass);
 
-	objc->get_property = fu_vbe_device_get_property;
-	objc->set_property = fu_vbe_device_set_property;
+	objc->get_property = fu_vbe_simple_device_get_property;
+	objc->set_property = fu_vbe_simple_device_set_property;
 
 	/**
-	 * FuVbeDevice:vbe_method:
+	 * FuVbeSimpleDevice:vbe_method:
 	 *
 	 * The VBE method being used (e.g. "mmc-simple").
 	 */
@@ -227,13 +227,13 @@ fu_vbe_device_class_init(FuVbeDeviceClass *klass)
 		G_PARAM_STATIC_NAME);
 	g_object_class_install_property(objc, PROP_VBE_METHOD, pspec);
 
-	objc->constructed = fu_vbe_device_constructed;
-	objc->finalize = fu_vbe_device_finalize;
-	dev->set_quirk_kv = fu_vbe_device_set_quirk_kv;
-	dev->probe = fu_vbe_device_probe;
-	dev->open = fu_vbe_device_open;
-	dev->close = fu_vbe_device_close;
-	dev->set_progress = fu_vbe_device_set_progress;
-	dev->prepare = fu_vbe_device_prepare;
-	dev->write_firmware = fu_vbe_device_write_firmware;
+	objc->constructed = fu_vbe_simple_device_constructed;
+	objc->finalize = fu_vbe_simple_device_finalize;
+	dev->set_quirk_kv = fu_vbe_simple_device_set_quirk_kv;
+	dev->probe = fu_vbe_simple_device_probe;
+	dev->open = fu_vbe_simple_device_open;
+	dev->close = fu_vbe_simple_device_close;
+	dev->set_progress = fu_vbe_simple_device_set_progress;
+	dev->prepare = fu_vbe_simple_device_prepare;
+	dev->write_firmware = fu_vbe_simple_device_write_firmware;
 }

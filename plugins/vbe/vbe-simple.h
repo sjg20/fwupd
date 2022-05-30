@@ -12,12 +12,13 @@
 
 #include <fwupdplugin.h>
 
-#define FU_TYPE_VBE_DEVICE (fu_vbe_device_get_type())
-G_DECLARE_FINAL_TYPE(FuVbeDevice, fu_vbe_device, FU, VBE_DEVICE, FuDevice)
+#define FU_TYPE_VBE_SIMPLE_DEVICE (fu_vbe_simple_device_get_type())
+G_DECLARE_FINAL_TYPE(FuVbeSimpleDevice, fu_vbe_simple_device, FU,
+		     VBE_SIMPLE_DEVICE, FuDevice)
 
 struct vbe_ctx;
 
 FuDevice *
-fu_vbe_device_new(FuContext *ctx, const gchar *vbe_method);
+fu_vbe_simple_device_new(FuContext *ctx, const gchar *vbe_method);
 
 #endif /* __FU_VBE_DEVICE_H */
