@@ -261,9 +261,9 @@ fu_vbe_simple_device_upload(FuDevice *device, FuProgress *progress, GError **err
 				    strerror(errno));
 			return FALSE;
 		}
+		g_ptr_array_add(chunks, g_steal_pointer(&chunk));
 	}
 
-// 	g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_INTERNAL, "failed");
 	return fu_dfu_utils_bytes_join_array(chunks);
 }
 
