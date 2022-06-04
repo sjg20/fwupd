@@ -263,6 +263,7 @@ fu_vbe_simple_device_upload(FuDevice *device, FuProgress *progress, GError **err
 		}
 		g_ptr_array_add(chunks, g_steal_pointer(&chunk));
 	}
+	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "to return");
 
 	return fu_dfu_utils_bytes_join_array(chunks);
 }
