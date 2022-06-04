@@ -8,8 +8,8 @@
 				cur-version = "1.2.3";
 				bootloader-version = "2022.01";
 				storage = "mmc1";
-				block-start = <0x800>;
-				block-count = <0x800>;
+				image-start = <0x100000>;
+				image-size = <0x100000>;
 			};
 		};
 	};

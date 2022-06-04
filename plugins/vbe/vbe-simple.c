@@ -20,6 +20,7 @@
 #include <libfdt.h>
 #include <stdio.h>
 
+#include "fu-dfu-common.h"
 #include "fu-plugin-vbe.h"
 #include "vbe-simple.h"
 
@@ -34,8 +35,8 @@
  * @node: Node containing the info for this device
  * @storage: Storage device name (e.g. "mmc1")
  * @devname: Device name (e.g. /dev/mmcblk1)
- * @block_start: Start block number for firmware
- * @block_end: End block number for firmware
+ * @image_start: Start offset for firmware
+ * @block_end: End offset for firmware
  * @fd: File descriptor, if the device is open
  */
 struct _FuVbeSimpleDevice {
@@ -45,8 +46,8 @@ struct _FuVbeSimpleDevice {
 	int node;
 	const gchar *storage;
 	const gchar *devname;
-	off_t block_start;
-	off_t block_count;
+	off_t image_start;
+	off_t image_size;
 	int fd;
 };
 
@@ -135,18 +136,18 @@ fu_vbe_simple_device_probe(FuDevice *device, GError **error)
 		            dev->storage);
 		return FALSE;
 	}
-	dev->block_start = fdt_get_u32(dev->fdt, dev->node, "block-start");
-	dev->block_count = fdt_get_u32(dev->fdt, dev->node, "block-count");
-	if (dev->block_start < 0 || dev->block_count < 0) {
+	dev->image_start = fdt_get_u32(dev->fdt, dev->node, "image-start");
+	dev->image_size = fdt_get_u32(dev->fdt, dev->node, "image-size");
+	if (dev->image_start < 0 || dev->image_size < 0) {
 		g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_NOT_SUPPORTED,
-			    "Invalid/missing block start / count (%#jx / %#jx)",
-		            (uintmax_t)dev->block_start,
-			    (uintmax_t)dev->block_count);
+			    "Invalid/missing image start / size (%#jx / %#jx)",
+		            (uintmax_t)dev->image_start,
+			    (uintmax_t)dev->image_size);
 		return FALSE;
 	}
 
-	g_info("Selected device '%s', block %#jx, count %#jx", dev->devname,
-	       (uintmax_t)dev->block_start,(uintmax_t)dev->block_count);
+	g_info("Selected device '%s', start %#jx, size %#jx", dev->devname,
+	       (uintmax_t)dev->image_start,(uintmax_t)dev->image_size);
 
 	return TRUE;
 }
@@ -225,27 +226,43 @@ fu_vbe_simple_device_upload(FuDevice *device, FuProgress *progress, GError **err
 {
 	struct _FuVbeSimpleDevice *dev = FU_VBE_SIMPLE_DEVICE(device);
 	g_autoptr(GPtrArray) chunks = NULL;
-	guint32 total = 0;
-	gsize done = 0;
-	long blksize;
-	int ret;
+	gsize blksize = 0x100000;
+	off_t up to;
 
-	ret = ioctl(dev->fd, BLKGETSIZE, &blksize);
-	if (ret) {
-		g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_NOT_SUPPORTED,
-			    "Cannot get block size for '%s' (%s)", dev->devname,
-			    strerror(errno));
-		return NULL;
-	}
+	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "upload");
 
 	/* notify UI */
 	fu_progress_set_status(progress, FWUPD_STATUS_DEVICE_READ);
 
 	chunks = g_ptr_array_new_with_free_func((GDestroyNotify)g_bytes_unref);
+	for (up to = 0; up to < dev->image_size; up to += blksize) {
+		g_autoptr(GBytes) chunk = NULL;
+		gsize toread;
+		int ret;
 
-	g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_INTERNAL, "failed");
-	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "upload");
-	return NULL;
+		ret = lseek(dev->fd, dev->image_start + up to, SEEK_SET);
+		if (ret < 0) {
+			g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_READ,
+				    "Cannot seek file '%s' (%s)", dev->devname,
+				    strerror(errno));
+			return FALSE;
+		}
+
+		toread = blksize;
+		if ((off_t)toread + dev->image_size > dev->image_size)
+			toread = dev->image_size - up to;
+		chunk = g_malloc(toread);
+		ret = read(dev->fd, chunk, toread);
+		if (ret < 0) {
+			g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_READ,
+				    "Cannot read file '%s' (%s)", dev->devname,
+				    strerror(errno));
+			return FALSE;
+		}
+	}
+
+// 	g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_INTERNAL, "failed");
+	return fu_dfu_utils_bytes_join_array(chunks);
 }
 
 static void
