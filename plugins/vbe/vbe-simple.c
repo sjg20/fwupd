@@ -13,6 +13,8 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <sys/ioctl.h>
+#include <linux/fs.h>
 
 #include <ctype.h>
 #include <libfdt.h>
@@ -21,7 +23,7 @@
 #include "fu-plugin-vbe.h"
 #include "vbe-simple.h"
 
-#define DEBUG 0
+#define DEBUG 1
 
 /**
  * struct _FuVbeSimpleDevice - Information for the 'simple' VBE device
@@ -211,11 +213,49 @@ fu_vbe_simple_device_write_firmware(FuDevice *device,
 	return TRUE;
 }
 
+static FuFirmware *
+fu_vbe_simple_device_read_firmware(FuDevice *self, FuProgress *progress, GError **error)
+{
+	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "read");
+	return NULL;
+}
+
+static GBytes *
+fu_vbe_simple_device_upload(FuDevice *device, FuProgress *progress, GError **error)
+{
+	struct _FuVbeSimpleDevice *dev = FU_VBE_SIMPLE_DEVICE(device);
+	g_autoptr(GPtrArray) chunks = NULL;
+	guint32 total = 0;
+	gsize done = 0;
+	long blksize;
+	int ret;
+
+	ret = ioctl(dev->fd, BLKGETSIZE, &blksize);
+	if (ret) {
+		g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_NOT_SUPPORTED,
+			    "Cannot get block size for '%s' (%s)", dev->devname,
+			    strerror(errno));
+		return NULL;
+	}
+
+	/* notify UI */
+	fu_progress_set_status(progress, FWUPD_STATUS_DEVICE_READ);
+
+	chunks = g_ptr_array_new_with_free_func((GDestroyNotify)g_bytes_unref);
+
+	g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_INTERNAL, "failed");
+	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "upload");
+	return NULL;
+}
+
 static void
 fu_vbe_simple_device_init(FuVbeSimpleDevice *self)
 {
-	fu_device_add_flag(FU_DEVICE(self), FWUPD_DEVICE_FLAG_INTERNAL);
-	fu_device_add_flag(FU_DEVICE(self), FWUPD_DEVICE_FLAG_UPDATABLE);
+	fu_device_add_flag(FU_DEVICE(self), FWUPD_DEVICE_FLAG_INTERNAL |
+		FWUPD_DEVICE_FLAG_UPDATABLE | FWUPD_DEVICE_FLAG_NEEDS_REBOOT |
+		FWUPD_DEVICE_FLAG_CAN_VERIFY |
+		FWUPD_DEVICE_FLAG_CAN_VERIFY_IMAGE);
+
 	fu_device_add_protocol(FU_DEVICE(self), "org.vbe");
 	fu_device_add_internal_flag(FU_DEVICE(self), FU_DEVICE_INTERNAL_FLAG_ENSURE_SEMVER);
 	fu_device_add_internal_flag(FU_DEVICE(self), FU_DEVICE_INTERNAL_FLAG_MD_SET_SIGNED);
@@ -350,4 +390,6 @@ fu_vbe_simple_device_class_init(FuVbeSimpleDeviceClass *klass)
 	dev->close = fu_vbe_simple_device_close;
 	dev->prepare = fu_vbe_simple_device_prepare;
 	dev->write_firmware = fu_vbe_simple_device_write_firmware;
+	dev->dump_firmware = fu_vbe_simple_device_upload;
+	dev->read_firmware = fu_vbe_simple_device_read_firmware;
 }

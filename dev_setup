@@ -18,3 +18,7 @@ pip3 install meson
 mkdir build
 meson build
 ./contrib/setup
+
+
+sudo build/src/fwupdtool install plugins/vbe/example/Vbe-Board-0.0.2.cab ea1b96eb-a430-4033-8708-498b6d98178b
+
