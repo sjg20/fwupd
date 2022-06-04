@@ -238,8 +238,8 @@ fu_vbe_simple_device_upload(FuDevice *device, FuProgress *progress, GError **err
 	ret = lseek(dev->fd, dev->image_start, SEEK_CUR);
 	if (ret < 0) {
 		g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_READ,
-			    "Cannot seek file '%s' (%s)", dev->devname,
-			    strerror(errno));
+			    "Cannot seek file '%s' to %jx (%s)", dev->devname,
+			    (uintmax_t)dev->image_start, strerror(errno));
 		return FALSE;
 	}
 
