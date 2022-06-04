@@ -227,7 +227,7 @@ fu_vbe_simple_device_upload(FuDevice *device, FuProgress *progress, GError **err
 	struct _FuVbeSimpleDevice *dev = FU_VBE_SIMPLE_DEVICE(device);
 	g_autoptr(GPtrArray) chunks = NULL;
 	gsize blksize = 0x100000;
-	off_t up to;
+	off_t upto;
 
 	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "upload");
 
@@ -235,12 +235,12 @@ fu_vbe_simple_device_upload(FuDevice *device, FuProgress *progress, GError **err
 	fu_progress_set_status(progress, FWUPD_STATUS_DEVICE_READ);
 
 	chunks = g_ptr_array_new_with_free_func((GDestroyNotify)g_bytes_unref);
-	for (up to = 0; up to < dev->image_size; up to += blksize) {
+	for (upto = 0; upto < dev->image_size; upto += blksize) {
 		g_autoptr(GBytes) chunk = NULL;
 		gsize toread;
 		int ret;
 
-		ret = lseek(dev->fd, dev->image_start + up to, SEEK_SET);
+		ret = lseek(dev->fd, dev->image_start + upto, SEEK_SET);
 		if (ret < 0) {
 			g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_READ,
 				    "Cannot seek file '%s' (%s)", dev->devname,
@@ -250,7 +250,7 @@ fu_vbe_simple_device_upload(FuDevice *device, FuProgress *progress, GError **err
 
 		toread = blksize;
 		if ((off_t)toread + dev->image_size > dev->image_size)
-			toread = dev->image_size - up to;
+			toread = dev->image_size - upto;
 		chunk = g_malloc(toread);
 		ret = read(dev->fd, chunk, toread);
 		if (ret < 0) {
