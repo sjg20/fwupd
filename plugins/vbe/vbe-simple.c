@@ -228,25 +228,25 @@ fu_vbe_simple_device_upload(FuDevice *device, FuProgress *progress, GError **err
 	g_autoptr(GPtrArray) chunks = NULL;
 	gsize blksize = 0x100000;
 	off_t upto;
+	int ret;
 
 	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "upload");
 
 	/* notify UI */
 	fu_progress_set_status(progress, FWUPD_STATUS_DEVICE_READ);
 
+	ret = lseek(dev->fd, dev->image_start, SEEK_CUR);
+	if (ret < 0) {
+		g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_READ,
+			    "Cannot seek file '%s' (%s)", dev->devname,
+			    strerror(errno));
+		return FALSE;
+	}
+
 	chunks = g_ptr_array_new_with_free_func((GDestroyNotify)g_bytes_unref);
 	for (upto = 0; upto < dev->image_size; upto += blksize) {
 		g_autoptr(GBytes) chunk = NULL;
 		gsize toread;
-		int ret;
-
-		ret = lseek(dev->fd, dev->image_start + upto, SEEK_SET);
-		if (ret < 0) {
-			g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_READ,
-				    "Cannot seek file '%s' (%s)", dev->devname,
-				    strerror(errno));
-			return FALSE;
-		}
 
 		toread = blksize;
 		if ((off_t)toread + dev->image_size > dev->image_size)
