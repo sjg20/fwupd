@@ -251,7 +251,7 @@ fu_vbe_simple_device_upload(FuDevice *device, FuProgress *progress, GError **err
 		gsize toread;
 
 		toread = blksize;
-		if ((off_t)toread + dev->image_size > dev->image_size)
+		if ((off_t)toread + upto > dev->image_size)
 			toread = dev->image_size - upto;
 		chunk = g_malloc(toread);
 		ret = read(dev->fd, chunk, toread);
