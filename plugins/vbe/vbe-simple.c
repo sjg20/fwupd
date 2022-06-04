@@ -24,7 +24,7 @@
 #include "fu-plugin-vbe.h"
 #include "vbe-simple.h"
 
-#define DEBUG 1
+#define DEBUG 0
 
 /**
  * struct _FuVbeSimpleDevice - Information for the 'simple' VBE device
