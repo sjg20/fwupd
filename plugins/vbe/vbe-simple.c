@@ -23,6 +23,7 @@
 #include "fu-dfu-common.h"
 #include "fu-plugin-vbe.h"
 #include "vbe-simple.h"
+#include "fit.h"
 
 #define DEBUG 0
 
@@ -207,8 +208,10 @@ fu_vbe_simple_device_write_firmware(FuDevice *device, FuFirmware *firmware,
 				    FwupdInstallFlags flags, GError **error)
 {
 	g_autoptr(GBytes) bytes = NULL;
+	struct fit_info fit;
 	const guint8 *buf;
 	gsize size = 0;
+	int ret;
 	int i;
 
 	bytes = fu_firmware_get_bytes(firmware, error);
@@ -216,7 +219,13 @@ fu_vbe_simple_device_write_firmware(FuDevice *device, FuFirmware *firmware,
 		return FALSE;
 	buf = g_bytes_get_data(bytes, &size);
 
-	g_info("Total bytes to write to device: %#zx\n", size);
+	g_info("Size of FIT: %#zx\n", size);
+	ret = fit_open(&fit, buf, size);
+	if (ret) {
+		g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_READ,
+			    "Failed to open FIT: %s", fit_strerror(ret));
+		return FALSE;
+	}
 
 	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "write");
 	for (i = 0; i < 5; i++) {
