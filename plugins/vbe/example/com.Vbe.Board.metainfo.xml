@@ -19,11 +19,11 @@
   <developer_name>Vbe</developer_name>
   <releases>
     <release urgency="high" version="1.2.4" date="2017-08-15">
-      <checksum filename="firmware.tar" target="content"/>
+      <checksum filename="firmware.fit" target="content"/>
       <description>
         <p>
           This release updates firmware to version 1.2.3 which includes support
-	  for a mythical new feature.
+          for a mythical new feature.
         </p>
       </description>
     </release>
