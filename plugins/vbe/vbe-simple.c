@@ -112,29 +112,34 @@ fu_vbe_simple_device_probe(FuDevice *device, GError **error)
 	}
 
 	/* sanity check */
-	if (len > 256) {
+	if (len > PATH_MAX) {
 		g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_NOT_SUPPORTED,
 			    "'storage' property exceeds maximum size");
 		return FALSE;
 	}
 
-	/* Obtain the 1 from "mmc1" */
-	devnum = trailing_strtoln_end(dev->storage, NULL, &end);
-	if (devnum == -1) {
-		g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_NOT_SUPPORTED,
-			    "Cannot parse 'storage' property '%s' - expect <dev><num>",
-		            dev->storage);
-		return FALSE;
-	}
-	len = end - dev->storage;
-
-	if (!strncmp("mmc", dev->storage, len)) {
-		dev->devname = g_strdup_printf("/dev/mmcblk%d", devnum);
+	/* If this is an absolute path, use it */
+	if (*dev->storage == '/') {
+		dev->devname = g_strdup(dev->storage);
 	} else {
-		g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_NOT_SUPPORTED,
-			    "Unsupported 'storage' media '%s'",
-		            dev->storage);
-		return FALSE;
+		/* Obtain the 1 from "mmc1" */
+		devnum = trailing_strtoln_end(dev->storage, NULL, &end);
+		if (devnum == -1) {
+			g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_NOT_SUPPORTED,
+				    "Cannot parse 'storage' property '%s' - expect <dev><num>",
+			            dev->storage);
+			return FALSE;
+		}
+		len = end - dev->storage;
+
+		if (!strncmp("mmc", dev->storage, len)) {
+			dev->devname = g_strdup_printf("/dev/mmcblk%d", devnum);
+		} else {
+			g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_NOT_SUPPORTED,
+				    "Unsupported 'storage' media '%s'",
+			            dev->storage);
+			return FALSE;
+		}
 	}
 	dev->image_start = fdt_get_u32(dev->fdt, dev->node, "image-start");
 	dev->image_size = fdt_get_u32(dev->fdt, dev->node, "image-size");
@@ -228,6 +233,8 @@ fu_vbe_simple_device_upload(FuDevice *device, FuProgress *progress, GError **err
 	struct _FuVbeSimpleDevice *dev = FU_VBE_SIMPLE_DEVICE(device);
 	g_autoptr(GPtrArray) chunks = NULL;
 	gsize blksize = 0x100000;
+	gpointer buf;
+	GBytes *out;
 	off_t upto;
 	int ret;
 
@@ -246,26 +253,32 @@ fu_vbe_simple_device_upload(FuDevice *device, FuProgress *progress, GError **err
 	}
 
 	chunks = g_ptr_array_new_with_free_func((GDestroyNotify)g_bytes_unref);
+
 	for (upto = 0; upto < dev->image_size; upto += blksize) {
 		g_autoptr(GBytes) chunk = NULL;
 		gsize toread;
 
+		buf = g_malloc(blksize);
 		toread = blksize;
 		if ((off_t)toread + upto > dev->image_size)
 			toread = dev->image_size - upto;
-		chunk = g_malloc(toread);
-		ret = read(dev->fd, chunk, toread);
+		g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "read %zx", toread);
+		ret = read(dev->fd, buf, toread);
 		if (ret < 0) {
 			g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_READ,
 				    "Cannot read file '%s' (%s)", dev->devname,
 				    strerror(errno));
+			g_free(buf);
 			return FALSE;
 		}
+		chunk = g_bytes_new_take(buf, ret);
 		g_ptr_array_add(chunks, g_steal_pointer(&chunk));
 	}
-	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "to return");
 
-	return fu_dfu_utils_bytes_join_array(chunks);
+	out = fu_dfu_utils_bytes_join_array(chunks);
+	g_info("Total bytes read from device: %#zx\n", g_bytes_get_size(out));
+
+	return out;
 }
 
 static void
