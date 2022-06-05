@@ -16,8 +16,12 @@
 #include <libfdt.h>
 #include "fit.h"
 
-static const char *const fit_err[FIT_ERR_COUNT] = {
-	[FIT_ERR_BAD_HEADER]	= "Bad device tree header",
+#define FIT_CONFIG_PATH		"/configurations"
+
+static const char *const fit_err[FITE_COUNT] = {
+	[FITE_BAD_HEADER]	= "Bad device tree header",
+	[FITE_NO_CONFIG_NODE]	= "Missing /configuration node",
+	[FITE_NOT_FOUND]	= "Not found",
 };
 
 int fit_open(struct fit_info *fit, const void *buf, size_t size)
@@ -26,7 +30,7 @@ int fit_open(struct fit_info *fit, const void *buf, size_t size)
 
 	ret = fdt_check_header(buf);
 	if (ret)
-		return -FIT_ERR_BAD_HEADER;
+		return -FITE_BAD_HEADER;
 	fit->blob = buf;
 
 	return false;
@@ -37,8 +41,34 @@ const char *fit_strerror(int err)
 	if (err >= 0)
 		return "no error";
 	err = -err;
-	if (err >= FIT_ERR_COUNT)
+	if (err >= FITE_COUNT)
 		return "invalid error";
 
 	return fit_err[err];
+}
+
+int fit_first_config(struct fit_info *fit)
+{
+	int subnode, node;
+
+	node = fdt_path_offset(fit->blob, FIT_CONFIG_PATH);
+	if (node < 0)
+		return -FITE_NO_CONFIG_NODE;
+
+	subnode = fdt_first_subnode(fit->blob, node);
+	if (subnode < 0)
+		return -FITE_NOT_FOUND;
+
+	return subnode;
+}
+
+int fit_next_config(struct fit_info *fit, int prev_subnode)
+{
+	int subnode;
+
+	subnode = fdt_next_subnode(fit->blob, prev_subnode);
+	if (subnode < 0)
+		return -FITE_NOT_FOUND;
+
+	return subnode;
 }

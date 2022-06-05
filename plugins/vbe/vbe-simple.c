@@ -202,6 +202,27 @@ fu_vbe_simple_device_prepare(FuDevice *device,
 	return TRUE;
 }
 
+static gboolean process_fit(struct fit_info *fit, FuProgress *progress,
+			    GError **error)
+{
+	int cfg;
+	int i;
+
+	cfg = fit_first_config(fit);
+	if (cfg < 0) {
+		g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_READ,
+			    "FIT has no configurations");
+		return FALSE;
+	}
+
+	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "write");
+	for (i = 0; i < 5; i++) {
+		fu_progress_set_percentage_full(progress, i, 5);
+	}
+
+	return TRUE;
+}
+
 static gboolean
 fu_vbe_simple_device_write_firmware(FuDevice *device, FuFirmware *firmware,
 				    FuProgress *progress,
@@ -212,7 +233,6 @@ fu_vbe_simple_device_write_firmware(FuDevice *device, FuFirmware *firmware,
 	const guint8 *buf;
 	gsize size = 0;
 	int ret;
-	int i;
 
 	bytes = fu_firmware_get_bytes(firmware, error);
 	if (!bytes)
@@ -227,10 +247,8 @@ fu_vbe_simple_device_write_firmware(FuDevice *device, FuFirmware *firmware,
 		return FALSE;
 	}
 
-	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "write");
-	for (i = 0; i < 5; i++) {
-		fu_progress_set_percentage_full(progress, i, 5);
-	}
+	if (!process_fit(&fit, progress, error))
+		return FALSE;
 	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "write done");
 
 	/* success */
