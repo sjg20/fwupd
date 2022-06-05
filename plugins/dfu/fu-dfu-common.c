@@ -125,6 +125,5 @@ fu_dfu_utils_bytes_join_array(GPtrArray *chunks)
 		memcpy(buffer + offset, chunk_data, chunk_size);
 		offset += chunk_size;
 	}
-	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "here1");
 	return g_bytes_new_take(buffer, total_size);
 }

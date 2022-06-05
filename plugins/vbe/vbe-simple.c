@@ -202,13 +202,21 @@ fu_vbe_simple_device_prepare(FuDevice *device,
 }
 
 static gboolean
-fu_vbe_simple_device_write_firmware(FuDevice *device,
-				  FuFirmware *firmware,
-				  FuProgress *progress,
-				  FwupdInstallFlags flags,
-				  GError **error)
+fu_vbe_simple_device_write_firmware(FuDevice *device, FuFirmware *firmware,
+				    FuProgress *progress,
+				    FwupdInstallFlags flags, GError **error)
 {
+	g_autoptr(GBytes) bytes = NULL;
+	const guint8 *buf;
+	gsize size = 0;
 	int i;
+
+	bytes = fu_firmware_get_bytes(firmware, error);
+	if (!bytes)
+		return FALSE;
+	buf = g_bytes_get_data(bytes, &size);
+
+	g_info("Total bytes to write to device: %#zx\n", size);
 
 	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "write");
 	for (i = 0; i < 5; i++) {
@@ -243,7 +251,7 @@ fu_vbe_simple_device_upload(FuDevice *device, FuProgress *progress, GError **err
 	/* notify UI */
 	fu_progress_set_status(progress, FWUPD_STATUS_DEVICE_READ);
 
-	ret = lseek(dev->fd, dev->image_start, SEEK_CUR);
+	ret = lseek(dev->fd, dev->image_start, SEEK_SET);
 	if (ret < 0) {
 		g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_READ,
 			    "Cannot seek file '%s' (%d) to %#jx (%s)",
