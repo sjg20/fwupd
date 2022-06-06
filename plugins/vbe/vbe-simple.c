@@ -233,6 +233,19 @@ static int check_config_match(struct fit_info *fit, int cfg,
 	return -1;
 }
 
+static gboolean process_config(struct fit_info *fit, int cfg,
+			       FuProgress *progress, GError **error)
+{
+	int i;
+
+	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "write");
+	for (i = 0; i < 5; i++) {
+		fu_progress_set_percentage_full(progress, i, 5);
+	}
+
+	return TRUE;
+}
+
 static gboolean process_fit(struct fit_info *fit, const char *method_compat,
 			    int method_compat_len, FuProgress *progress,
 			    GError **error)
@@ -241,7 +254,6 @@ static gboolean process_fit(struct fit_info *fit, const char *method_compat,
 	int best_prio = INT_MAX;
 	int cfg_count = 0;
 	int cfg;
-	int i;
 
 	for (cfg = fit_first_cfg(fit); cfg > 0;
 	     cfg_count++, cfg = fit_next_cfg(fit, cfg)) {
@@ -250,7 +262,7 @@ static gboolean process_fit(struct fit_info *fit, const char *method_compat,
 		g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO,
 		      "config '%s': priority=%d",
 		      fit_cfg_get_name(fit, cfg), prio);
-		if (prio > 0 && (!best_cfg || prio < best_prio)) {
+		if (prio >= 0 && (!best_cfg || prio < best_prio)) {
 			best_cfg = cfg;
 			best_prio = prio;
 		}
@@ -272,10 +284,8 @@ static gboolean process_fit(struct fit_info *fit, const char *method_compat,
 	      "Best configuration: '%s', priorty %d",
 	      fit_cfg_get_name(fit, best_cfg), best_prio);
 
-	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "write");
-	for (i = 0; i < 5; i++) {
-		fu_progress_set_percentage_full(progress, i, 5);
-	}
+	if (!process_config(fit, best_cfg, progress, error))
+		return FALSE;
 
 	return TRUE;
 }
