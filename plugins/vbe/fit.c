@@ -19,7 +19,8 @@
 #define FIT_CONFIG_PATH		"/configurations"
 #define FIT_IMAGE_PATH		"/images"
 
-#define FIT_COMPATIBLE		"compatible"
+#define FIT_PROP_COMPATIBLE	"compatible"
+#define FIT_PROP_DATA		"data"
 
 
 static const char *const fit_err[FITE_COUNT] = {
@@ -68,11 +69,11 @@ int fit_first_cfg(struct fit_info *fit)
 	return subnode;
 }
 
-int fit_next_cfg(struct fit_info *fit, int prev_subnode)
+int fit_next_cfg(struct fit_info *fit, int preb_cfg)
 {
 	int subnode;
 
-	subnode = fdt_next_subnode(fit->blob, prev_subnode);
+	subnode = fdt_next_subnode(fit->blob, preb_cfg);
 	if (subnode < 0)
 		return -FITE_NOT_FOUND;
 
@@ -86,7 +87,7 @@ const char *fit_cfg_name(struct fit_info *fit, int cfg)
 
 const char *fit_cfg_compat_item(struct fit_info *fit, int cfg, int index)
 {
-	return fdt_stringlist_get(fit->blob, cfg, FIT_COMPATIBLE, index, NULL);
+	return fdt_stringlist_get(fit->blob, cfg, FIT_PROP_COMPATIBLE, index, NULL);
 }
 
 int fit_cfg_image_count(struct fit_info *fit, int cfg, const char *prop_name)
@@ -120,3 +121,7 @@ const char *fit_img_name(struct fit_info *fit, int img)
 	return fdt_get_name(fit->blob, img, NULL);
 }
 
+const char *fit_image_get_raw_data(struct fit_info *fit, int img, int *sizep)
+{
+	return fdt_getprop(fit->blob, img, FIT_PROP_DATA, sizep);
+}

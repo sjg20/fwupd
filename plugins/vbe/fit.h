@@ -65,17 +65,63 @@ const char *fit_strerror(int err);
  */
 int fit_first_cfg(struct fit_info *fit);
 
-int fit_next_cfg(struct fit_info *fit, int prev_subnode);
+/**
+ * fit_next_cfg() - Find the next configuration in the FIT
+ *
+ * @fit: FIT to check
+ * @prev_cfg: Offset of the previous configuration
+ * Returns: offset of next configuration, or -EFIT_NOT_FOUND if not found
+ */
+int fit_next_cfg(struct fit_info *fit, int preb_cfg);
 
+/**
+ * fit_cfg_name() - Get the name of a configuration
+ *
+ * @fit: FIT to check
+ * @cfg: Offset of configuration node to check
+ * @return name of configuration, or NULL if @cfg is invalid
+ */
 const char *fit_cfg_name(struct fit_info *fit, int cfg);
 
+/**
+ * fit_cfg_compat_item() - Get the name of one of a configs's compat strings
+ *
+ * The config hav a list of compatible strings, indexed from 0. This function
+ * returns am indexed string
+ *
+ * @fit: FIT to check
+ * @cfg: Offset of configuration node to check
+ * @index: Index of compatible string (0 for first, 1 for next...)
+ * Returns: Configuration's compatible string with that index, or NULL if none
+ */
 const char *fit_cfg_compat_item(struct fit_info *fit, int cfg, int index);
 
+/**
+ * fit_cfg_image_count() - Get the number of images in a configuration
+ *
+ * This returns the number of images in a particular configuration-node
+ * property. For example, for:
+ *
+ *	firmware = "u-boot", "op-tee";
+ *
+ * this would return 2, since there are two images mentioned.
+ *
+ * @fit: FIT to check
+ * @cfg: Offset of configuration node to check
+ * @prop_name: Name of property to look up
+ */
 int fit_cfg_image_count(struct fit_info *fit, int cfg, const char *prop_name);
 
+/**
+ * fit_cfg_image() - Get the offset of an image from a configuration
+ *
+ *
+ */
 int fit_cfg_image(struct fit_info *fit, int cfg, const char *prop_name,
 		  int index);
 
 const char *fit_img_name(struct fit_info *fit, int img);
+
+const char *fit_image_get_raw_data(struct fit_info *fit, int img, int *sizep);
 
 #endif /* __FU_PLUGIN_VBE_FIT_H */

@@ -236,7 +236,13 @@ static int check_config_match(struct fit_info *fit, int cfg,
 static gboolean process_image(struct fit_info *fit, int img,
 			      FuProgress *progress, GError **error)
 {
+	g_autoptr(GBytes) data = NULL;
+	const char *buf;
+	int size;
+
 	g_info("Writing image '%s'\n", fit_img_name(fit, img));
+	buf = fit_image_get_raw_data(fit, img, &size);
+	data = g_bytes_new(buf, size);
 
 	return TRUE;
 }
