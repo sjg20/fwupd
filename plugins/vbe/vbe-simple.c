@@ -34,6 +34,9 @@
  * @vbe_method: Name of method ("simple")
  * @fdt: Device tree containing the info
  * @node: Node containing the info for this device
+ * @compat: Compatible property for this update method. This is a device tree
+ * string list, i.e. a contiguous list of NULL-terminated strings
+ * #compat_len: Length of @compat in bytes
  * @storage: Storage device name (e.g. "mmc1")
  * @devname: Device name (e.g. /dev/mmcblk1)
  * @image_start: Start offset for firmware
@@ -45,6 +48,8 @@ struct _FuVbeSimpleDevice {
 	char *vbe_method;
 	char *fdt;
 	int node;
+	const char *compat;
+	int compat_len;
 	const gchar *storage;
 	const gchar *devname;
 	off_t image_start;
@@ -105,6 +110,8 @@ fu_vbe_simple_device_probe(FuDevice *device, GError **error)
 	int devnum, len;
 
 	g_info("Probing device %s", dev->vbe_method);
+	dev->compat = fdt_getprop(dev->fdt, dev->node, "compatible",
+				  &dev->compat_len);
 	dev->storage = fdt_getprop(dev->fdt, dev->node, "storage", &len);
 	if (!dev->storage) {
 		g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_NOT_SUPPORTED,
@@ -202,18 +209,68 @@ fu_vbe_simple_device_prepare(FuDevice *device,
 	return TRUE;
 }
 
-static gboolean process_fit(struct fit_info *fit, FuProgress *progress,
+/**
+ * check_config_match() - Check if this config is compatible with this model
+ *
+ * @fit: FIT to check
+ * @cfg: Config node in FIT to check
+ * @method_compat: Compatible list for the VBE method (a device tree string list)
+ * @method_compat_len: Length of @method_compat
+ * @return 0 if the given cfg matches, -ve if not
+ */
+static int check_config_match(struct fit_info *fit, int cfg,
+			      const void *method_compat, int method_compat_len)
+{
+	const char *p = method_compat, *end = p + method_compat_len;
+	int prio;
+
+	for (prio = 0; p < end; prio++, p += strlen(p) + 1) {
+		int ret = fdt_node_check_compatible(fit->blob, cfg, p);
+		if (!ret || ret == -FDT_ERR_NOTFOUND)
+			return prio;
+	}
+
+	return -1;
+}
+
+static gboolean process_fit(struct fit_info *fit, const char *method_compat,
+			    int method_compat_len, FuProgress *progress,
 			    GError **error)
 {
+	int best_cfg = 0;
+	int best_prio = INT_MAX;
+	int cfg_count = 0;
 	int cfg;
 	int i;
 
-	cfg = fit_first_config(fit);
-	if (cfg < 0) {
+	for (cfg = fit_first_cfg(fit); cfg > 0;
+	     cfg_count++, cfg = fit_next_cfg(fit, cfg)) {
+		int prio = check_config_match(fit, cfg, method_compat,
+					      method_compat_len);
+		g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO,
+		      "config '%s': priority=%d",
+		      fit_cfg_get_name(fit, cfg), prio);
+		if (prio > 0 && (!best_cfg || prio < best_prio)) {
+			best_cfg = cfg;
+			best_prio = prio;
+		}
+	}
+
+	g_info("cfg_count=%d, best_cfg=%d\n", cfg_count, best_cfg);
+	if (!cfg_count) {
 		g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_READ,
 			    "FIT has no configurations");
 		return FALSE;
 	}
+
+	if (!best_cfg) {
+		g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_READ,
+			    "No matching configuration");
+		return FALSE;
+	}
+	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO,
+	      "Best configuration: '%s', priorty %d",
+	      fit_cfg_get_name(fit, best_cfg), best_prio);
 
 	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "write");
 	for (i = 0; i < 5; i++) {
@@ -228,6 +285,7 @@ fu_vbe_simple_device_write_firmware(FuDevice *device, FuFirmware *firmware,
 				    FuProgress *progress,
 				    FwupdInstallFlags flags, GError **error)
 {
+	struct _FuVbeSimpleDevice *dev = FU_VBE_SIMPLE_DEVICE(device);
 	g_autoptr(GBytes) bytes = NULL;
 	struct fit_info fit;
 	const guint8 *buf;
@@ -247,7 +305,7 @@ fu_vbe_simple_device_write_firmware(FuDevice *device, FuFirmware *firmware,
 		return FALSE;
 	}
 
-	if (!process_fit(&fit, progress, error))
+	if (!process_fit(&fit, dev->compat, dev->compat_len, progress, error))
 		return FALSE;
 	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "write done");
 

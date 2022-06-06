@@ -18,6 +18,9 @@
 
 #define FIT_CONFIG_PATH		"/configurations"
 
+#define FIT_COMPATIBLE		"compatible"
+
+
 static const char *const fit_err[FITE_COUNT] = {
 	[FITE_BAD_HEADER]	= "Bad device tree header",
 	[FITE_NO_CONFIG_NODE]	= "Missing /configuration node",
@@ -47,7 +50,7 @@ const char *fit_strerror(int err)
 	return fit_err[err];
 }
 
-int fit_first_config(struct fit_info *fit)
+int fit_first_cfg(struct fit_info *fit)
 {
 	int subnode, node;
 
@@ -62,7 +65,7 @@ int fit_first_config(struct fit_info *fit)
 	return subnode;
 }
 
-int fit_next_config(struct fit_info *fit, int prev_subnode)
+int fit_next_cfg(struct fit_info *fit, int prev_subnode)
 {
 	int subnode;
 
@@ -71,4 +74,14 @@ int fit_next_config(struct fit_info *fit, int prev_subnode)
 		return -FITE_NOT_FOUND;
 
 	return subnode;
+}
+
+const char *fit_cfg_get_name(struct fit_info *fit, int cfg)
+{
+	return fdt_get_name(fit->blob, cfg, NULL);
+}
+
+const char *fit_cfg_get_compat_item(struct fit_info *fit, int cfg, int index)
+{
+	return fdt_stringlist_get(fit->blob, cfg, FIT_COMPATIBLE, index, NULL);
 }

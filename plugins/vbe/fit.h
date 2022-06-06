@@ -54,13 +54,17 @@ int fit_open(struct fit_info *fit, const void *buf, size_t size);
 const char *fit_strerror(int err);
 
 /**
- * fit_first_config() - Find the first configuration in the FIT
+ * fit_first_cfg() - Find the first configuration in the FIT
  *
  * @fit: FIT to check
  * Returns: offset of first configuration, or -EFIT_NOT_FOUND if not found
  */
-int fit_first_config(struct fit_info *fit);
+int fit_first_cfg(struct fit_info *fit);
 
-int fit_next_config(struct fit_info *fit, int prev_subnode);
+int fit_next_cfg(struct fit_info *fit, int prev_subnode);
+
+const char *fit_cfg_get_name(struct fit_info *fit, int cfg);
+
+const char *fit_cfg_get_compat_item(struct fit_info *fit, int cfg, int index);
 
 #endif /* __FU_PLUGIN_VBE_FIT_H */
