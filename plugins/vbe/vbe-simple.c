@@ -233,15 +233,38 @@ static int check_config_match(struct fit_info *fit, int cfg,
 	return -1;
 }
 
+static gboolean process_image(struct fit_info *fit, int img,
+			      FuProgress *progress, GError **error)
+{
+	g_info("Writing image '%s'\n", fit_img_name(fit, img));
+
+	return TRUE;
+}
+
 static gboolean process_config(struct fit_info *fit, int cfg,
 			       FuProgress *progress, GError **error)
 {
+	int count;
 	int i;
 
+	count = fit_cfg_image_count(fit, cfg, "firmware");
+
 	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "write");
-	for (i = 0; i < 5; i++) {
-		fu_progress_set_percentage_full(progress, i, 5);
+
+	for (i = 0; i < count; i++) {
+		int image = fit_cfg_image(fit, cfg, "firmware", i);
+
+		if (image < 0) {
+			g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_READ,
+				    "'firmware' image #%d has no node", i);
+			return FALSE;
+		}
+		fu_progress_set_percentage_full(progress, i, count);
+
+		if (!process_image(fit, image, progress, error))
+			return FALSE;
 	}
+	fu_progress_set_percentage_full(progress, i, count);
 
 	return TRUE;
 }
@@ -261,7 +284,7 @@ static gboolean process_fit(struct fit_info *fit, const char *method_compat,
 					      method_compat_len);
 		g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO,
 		      "config '%s': priority=%d",
-		      fit_cfg_get_name(fit, cfg), prio);
+		      fit_cfg_name(fit, cfg), prio);
 		if (prio >= 0 && (!best_cfg || prio < best_prio)) {
 			best_cfg = cfg;
 			best_prio = prio;
@@ -282,7 +305,7 @@ static gboolean process_fit(struct fit_info *fit, const char *method_compat,
 	}
 	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO,
 	      "Best configuration: '%s', priorty %d",
-	      fit_cfg_get_name(fit, best_cfg), best_prio);
+	      fit_cfg_name(fit, best_cfg), best_prio);
 
 	if (!process_config(fit, best_cfg, progress, error))
 		return FALSE;

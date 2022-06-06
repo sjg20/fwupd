@@ -15,12 +15,16 @@
  * @FITE_BAD_HEADER: Device tree header is not valid
  * @FITE_NO_CONFIG_NODE: The /configurations node is missing
  * @EFIT_NOT_FOUND: No (more) items found
+ * @FITE_NO_IMAGES_NODE: The /images node is missing
+ * @FITE_MISSING_IMAGE: An image referred to in a configuration is missing
  */
 enum fit_err_t {
 	FIT_ERR_OK = 0,
 	FITE_BAD_HEADER,
 	FITE_NO_CONFIG_NODE,
 	FITE_NOT_FOUND,
+	FITE_NO_IMAGES_NODE,
+	FITE_MISSING_IMAGE,
 
 	FITE_COUNT,
 };
@@ -63,8 +67,15 @@ int fit_first_cfg(struct fit_info *fit);
 
 int fit_next_cfg(struct fit_info *fit, int prev_subnode);
 
-const char *fit_cfg_get_name(struct fit_info *fit, int cfg);
+const char *fit_cfg_name(struct fit_info *fit, int cfg);
 
-const char *fit_cfg_get_compat_item(struct fit_info *fit, int cfg, int index);
+const char *fit_cfg_compat_item(struct fit_info *fit, int cfg, int index);
+
+int fit_cfg_image_count(struct fit_info *fit, int cfg, const char *prop_name);
+
+int fit_cfg_image(struct fit_info *fit, int cfg, const char *prop_name,
+		  int index);
+
+const char *fit_img_name(struct fit_info *fit, int img);
 
 #endif /* __FU_PLUGIN_VBE_FIT_H */
