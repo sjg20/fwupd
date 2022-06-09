@@ -47,6 +47,15 @@ struct fit_info {
 int fit_open(struct fit_info *fit, const void *buf, size_t size);
 
 /**
+ * fit_close() - Shut down a FIT after use
+ *
+ * This frees any memory in use
+ *
+ * @fit: FIT to shut down
+ */
+void fit_close(struct fit_info *fit);
+
+/**
  * fit_strerror() - Look up a FIT error number
  *
  * Since all errors are negative, this should be a negative number. If not, then

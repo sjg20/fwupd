@@ -43,6 +43,10 @@ int fit_open(struct fit_info *fit, const void *buf, size_t size)
 	return false;
 }
 
+void fit_close(struct fit_info *fit)
+{
+}
+
 const char *fit_strerror(int err)
 {
 	if (err >= 0)

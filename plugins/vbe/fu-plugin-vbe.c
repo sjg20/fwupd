@@ -13,6 +13,7 @@
 #include <libfdt.h>
 #include "fu-plugin-vbe.h"
 #include "vbe-simple.h"
+#include "fit_test.h"
 
 /* File to use for system information where the system has no device tree */
 #define SYSTEM_DT	"system.dtb"
@@ -180,6 +181,13 @@ fu_plugin_vbe_startup(FuPlugin *plugin, GError **error)
 	g_autofree gchar *state_dir = NULL;
 	gchar *buf, *bfname;
 	gsize len;
+	int ret;
+
+	ret = fit_test();
+	if (ret) {
+		g_info("fit_test failed: %d", ret);
+		return FALSE;
+	}
 
 	/* Get the VBE directory */
 	state_dir = fu_common_get_path(FU_PATH_KIND_LOCALSTATEDIR_PKG);
@@ -196,8 +204,7 @@ fu_plugin_vbe_startup(FuPlugin *plugin, GError **error)
 	      bfname);
 	priv->fdt = buf;
 	if (!process_system(priv, buf, len, error)) {
-		g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "Failed: %s",
-		      (*error)->message);
+		g_info("Failed: %s", (*error)->message);
 		return FALSE;
 	}
 

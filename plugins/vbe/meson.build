@@ -8,6 +8,7 @@ shared_module('fu_plugin_vbe',
     'vbe-simple.c',
     'fu-plugin-vbe.c',
     'fit.c',
+    'fit_test.c'
   ],
   include_directories : [
     root_incdir,
