@@ -90,13 +90,12 @@ const char *fit_cfg_compat_item(struct fit_info *fit, int cfg, int index)
 	return fdt_stringlist_get(fit->blob, cfg, FIT_PROP_COMPATIBLE, index, NULL);
 }
 
-int fit_cfg_image_count(struct fit_info *fit, int cfg, const char *prop_name)
+int fit_cfg_img_count(struct fit_info *fit, int cfg, const char *prop_name)
 {
 	return fdt_stringlist_count(fit->blob, cfg, prop_name);
 }
 
-int fit_cfg_image(struct fit_info *fit, int cfg, const char *prop_name,
-		  int index)
+int fit_cfg_img(struct fit_info *fit, int cfg, const char *prop_name, int index)
 {
 	const char *name;
 	int images, image;
@@ -121,7 +120,7 @@ const char *fit_img_name(struct fit_info *fit, int img)
 	return fdt_get_name(fit->blob, img, NULL);
 }
 
-const char *fit_image_get_raw_data(struct fit_info *fit, int img, int *sizep)
+const char *fit_img_raw_data(struct fit_info *fit, int img, int *sizep)
 {
 	return fdt_getprop(fit->blob, img, FIT_PROP_DATA, sizep);
 }

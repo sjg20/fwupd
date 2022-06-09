@@ -241,7 +241,7 @@ static gboolean process_image(struct fit_info *fit, int img,
 	int size;
 
 	g_info("Writing image '%s'\n", fit_img_name(fit, img));
-	buf = fit_image_get_raw_data(fit, img, &size);
+	buf = fit_img_raw_data(fit, img, &size);
 	data = g_bytes_new(buf, size);
 
 	return TRUE;
@@ -253,12 +253,12 @@ static gboolean process_config(struct fit_info *fit, int cfg,
 	int count;
 	int i;
 
-	count = fit_cfg_image_count(fit, cfg, "firmware");
+	count = fit_cfg_img_count(fit, cfg, "firmware");
 
 	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "write");
 
 	for (i = 0; i < count; i++) {
-		int image = fit_cfg_image(fit, cfg, "firmware", i);
+		int image = fit_cfg_img(fit, cfg, "firmware", i);
 
 		if (image < 0) {
 			g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_READ,

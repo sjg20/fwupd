@@ -109,19 +109,42 @@ const char *fit_cfg_compat_item(struct fit_info *fit, int cfg, int index);
  * @fit: FIT to check
  * @cfg: Offset of configuration node to check
  * @prop_name: Name of property to look up
+ * Returns: Number of images in the configuration, or -ve if the offset is
+ * invalid or the proprerty is not found
  */
-int fit_cfg_image_count(struct fit_info *fit, int cfg, const char *prop_name);
+int fit_cfg_img_count(struct fit_info *fit, int cfg, const char *prop_name);
 
 /**
  * fit_cfg_image() - Get the offset of an image from a configuration
  *
+ * Look up a particular name in a stringlist and find the image with that name.
  *
+ * @fit: FIT to check
+ * @cfg: Offset of configuration node to check
+ * @prop_name: Name of property to look up
+ * @index: Index of string to use (0=first)
+ * Returns: offset of image node, or -ve on error
  */
-int fit_cfg_image(struct fit_info *fit, int cfg, const char *prop_name,
+int fit_cfg_img(struct fit_info *fit, int cfg, const char *prop_name,
 		  int index);
 
+/**
+ * fit_img_name() - Get the name of an image
+ *
+ * @fit: FIT to check
+ * @img: Offset of image node
+ * Returns: name of the image (node name), or NULL if @offset is invalid
+ */
 const char *fit_img_name(struct fit_info *fit, int img);
 
-const char *fit_image_get_raw_data(struct fit_info *fit, int img, int *sizep);
+/**
+ * fit_img_raw_data() - Get the data from an image node
+ *
+ * @fit: FIT to check
+ * @img: Offset of image node
+ * @sizep: Returns the size of the image in bytes, if found
+ * Returns: Pointer to image
+ */
+const char *fit_img_raw_data(struct fit_info *fit, int img, int *sizep);
 
 #endif /* __FU_PLUGIN_VBE_FIT_H */
