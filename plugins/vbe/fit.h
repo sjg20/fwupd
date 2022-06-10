@@ -25,12 +25,13 @@ enum fit_err_t {
 	FITE_NOT_FOUND,
 	FITE_NO_IMAGES_NODE,
 	FITE_MISSING_IMAGE,
+	FITE_MISSING_SIZE,
 
 	FITE_COUNT,
 };
 
 struct fit_info {
-	const void *blob;
+	const char *blob;
 };
 
 /**
@@ -151,8 +152,9 @@ const char *fit_img_name(struct fit_info *fit, int img);
  *
  * @fit: FIT to check
  * @img: Offset of image node
- * @sizep: Returns the size of the image in bytes, if found
- * Returns: Pointer to image
+ * @sizep: Returns the size of the image in bytes, if found. If not found,
+ * this returns the error code
+ * Returns: Pointer to image or NULL if not found
  */
 const char *fit_img_raw_data(struct fit_info *fit, int img, int *sizep);
 

@@ -29,6 +29,7 @@ static const char *const fit_err[FITE_COUNT] = {
 	[FITE_NOT_FOUND]	= "Not found",
 	[FITE_NO_IMAGES_NODE]	= "Missing /images node",
 	[FITE_MISSING_IMAGE]	= "Missing image referred to by configuration",
+	[FITE_MISSING_SIZE]	= "Missing data-size for external data",
 };
 
 int fit_open(struct fit_info *fit, const void *buf, size_t size)
@@ -56,6 +57,19 @@ const char *fit_strerror(int err)
 		return "invalid error";
 
 	return fit_err[err];
+}
+
+static int fit_getprop_u32(struct fit_info *fit, int node, const char *prop,
+			   int *valp)
+{
+	const fdt32_t *val;
+
+	val = fdt_getprop(fit->blob, node, prop, NULL);
+	if (!val)
+		return -FITE_NOT_FOUND;
+	*valp = fdt32_to_cpu(*val);
+
+	return 0;
 }
 
 int fit_first_cfg(struct fit_info *fit)
@@ -132,5 +146,24 @@ const char *fit_img_name(struct fit_info *fit, int img)
 
 const char *fit_img_raw_data(struct fit_info *fit, int img, int *sizep)
 {
-	return fdt_getprop(fit->blob, img, FIT_PROP_DATA, sizep);
+	const char *data;
+	int offset;
+
+	if (!fit_getprop_u32(fit, img, "data-offset", &offset)) {
+		data = fit->blob + ((fdt_totalsize(fit->blob) + 3) & ~3);
+		if (fit_getprop_u32(fit, img, "data-size", sizep)) {
+			*sizep = -FITE_MISSING_SIZE;
+			return NULL;
+		}
+
+		return data;
+	}
+
+	data = fdt_getprop(fit->blob, img, FIT_PROP_DATA, sizep);
+	if (!data) {
+		*sizep = -FITE_NOT_FOUND;
+		return NULL;
+	}
+
+	return data;
 }
