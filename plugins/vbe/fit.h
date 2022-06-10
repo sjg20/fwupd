@@ -150,6 +150,10 @@ const char *fit_img_name(struct fit_info *fit, int img);
 /**
  * fit_img_raw_data() - Get the data from an image node
  *
+ * This handles both internal and external data. It does not handle the
+ * data-position property, only data-offset sinze there is no absolute memory
+ * addressing available in this library.
+ *
  * @fit: FIT to check
  * @img: Offset of image node
  * @sizep: Returns the size of the image in bytes, if found. If not found,
