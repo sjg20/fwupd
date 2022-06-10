@@ -134,6 +134,10 @@ static int test_base(void)
 	const char *data;
 	int size;
 
+	/* Bad FIT */
+	strcpy(fdt_buf, "junk");
+	CHECKEQ(-FITE_BAD_HEADER, fit_open(fit, fdt_buf, FDT_SIZE));
+
 	/* FIT with missing /configurations */
 	CALL(build_fit(fdt_buf, FDT_SIZE, 0));
 	CALL(fit_open(fit, fdt_buf, FDT_SIZE));
@@ -159,7 +163,7 @@ static int test_base(void)
 
 	CHECKEQ_NULL(fit_cfg_compat_item(fit, cfg, 0));
 
-	/* Normal FIT with compatible string */
+	/* Normal FIT with compatible string but no /images node */
 	CALL(build_fit(fdt_buf, FDT_SIZE, GEN_CFGS | GEN_CFG | GEN_COMPAT));
 	CALL(fit_open(fit, fdt_buf, FDT_SIZE));
 
@@ -175,6 +179,7 @@ static int test_base(void)
 
 	CHECKEQ(-FITE_NO_IMAGES_NODE, fit_cfg_img(fit, cfg, "firmware", 0));
 
+	/* Normal FIT with compatible string and only an /images node */
 	CALL(build_fit(fdt_buf, FDT_SIZE,
 		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS));
 	CALL(fit_open(fit, fdt_buf, FDT_SIZE));
@@ -183,6 +188,7 @@ static int test_base(void)
 	CHECKEQ(-FITE_MISSING_IMAGE, fit_cfg_img(fit, cfg, "firmware", 0));
 	CHECKEQ(-FITE_NOT_FOUND, fit_cfg_img(fit, cfg, "firmware", 1));
 
+	/* With an image as well */
 	CALL(build_fit(fdt_buf, FDT_SIZE,
 		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG));
 	CALL(fit_open(fit, fdt_buf, FDT_SIZE));
@@ -195,6 +201,7 @@ static int test_base(void)
 	data = fit_img_raw_data(fit, img, &size);
 	CHECKEQ_NULL(data);
 
+	/* With data as well */
 	CALL(build_fit(fdt_buf, FDT_SIZE,
 		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG |
 		       GEN_DATA));
