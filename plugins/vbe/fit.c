@@ -96,7 +96,13 @@ const char *fit_cfg_compat_item(struct fit_info *fit, int cfg, int index)
 
 int fit_cfg_img_count(struct fit_info *fit, int cfg, const char *prop_name)
 {
-	return fdt_stringlist_count(fit->blob, cfg, prop_name);
+	int count;
+
+	count = fdt_stringlist_count(fit->blob, cfg, prop_name);
+	if (count < 0)
+		return -FITE_NOT_FOUND;
+
+	return count;
 }
 
 int fit_cfg_img(struct fit_info *fit, int cfg, const char *prop_name, int index)
@@ -106,7 +112,7 @@ int fit_cfg_img(struct fit_info *fit, int cfg, const char *prop_name, int index)
 
 	name = fdt_stringlist_get(fit->blob, cfg, prop_name, index, NULL);
 	if (!name)
-		return -1;
+		return -FITE_NOT_FOUND;
 
 	images = fdt_path_offset(fit->blob, FIT_IMAGE_PATH);
 	if (images < 0)
