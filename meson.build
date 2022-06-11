@@ -449,12 +449,7 @@ if build_standalone
 endif
 
 libfdt = cc.find_library('fdt', required: get_option('plugin_vbe'))
-#fdt_lib = static_library('fdt')
-# libfdt_dep = declare_dependency(link_with: fdt_lib)
-
-# libfdt = dependency('libfdt-dev',
-#                     fallback : ['libfdt', 'libfdt_dep'],
-#                     required: get_option('plugin_vbe'))
+libz = cc.find_library('z', required: get_option('plugin_vbe'))
 
 if libsystemd.found()
   systemd = dependency('systemd', version : '>= 211', required: get_option('systemd'))

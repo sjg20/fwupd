@@ -174,10 +174,9 @@ static enum fit_algo_t fit_get_algo(struct fit_info *fit, int node)
 	return -FITE_UNKNOWN_ALGO;
 }
 
-static int fit_check_hash(struct fit_info *fit, int node, const char *data,
-			  int size)
+int fit_check_hash(struct fit_info *fit, int node, const char *data, int size)
 {
-	enum fit_algo_t algo;
+	int algo;
 	const char *value;
 	int val_size;
 
@@ -186,7 +185,7 @@ static int fit_check_hash(struct fit_info *fit, int node, const char *data,
 		return -FITE_MISSING_VALUE;
 
 	/* Only check the algo after we have found a value */
-	algo = fit_get_algo(fit, node);
+	algo = (int)fit_get_algo(fit, node);
 	if (algo < 0)
 		return algo;
 

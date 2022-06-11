@@ -188,6 +188,8 @@ const char *fit_img_name(struct fit_info *fit, int img);
  */
 const char *fit_img_data(struct fit_info *fit, int img, int *sizep);
 
+int fit_check_hash(struct fit_info *fit, int node, const char *data, int size);
+
 int fit_check_hashes(struct fit_info *fit, int img, const char *data, int size);
 
 #endif /* __FU_PLUGIN_VBE_FIT_H */

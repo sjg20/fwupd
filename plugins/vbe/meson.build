@@ -30,6 +30,7 @@ shared_module('fu_plugin_vbe',
   dependencies : [
     plugin_deps,
     libfdt,
+    libz,
   ],
 )
 endif

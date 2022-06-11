@@ -65,16 +65,26 @@
  * @GEN_DATA: Generate some (internal) data for the image
  * @GEN_EXT_DATA: Generate external data in the FIT
  * @GEN_DATA_SIZE: Generate the correct data-size property
+ * @GEN_CRC32_ALGO: Generate an 'algo' property for CRC32
+ * @GEN_CRC32_VAL: Generate a crc32 value for the data
+ * @GEN_CRC32_BAD_SIZE: Generate a crc32 value with a bad size
+ * @GEN_CRC32_BAD_VAL: Generate a bad crc32 value for the data
+ * @GEN_BAD_ALGO: Generate an unknown algo property
  */
 enum gen_t {
-	GEN_CFGS	= 1 << 0,
-	GEN_CFG		= 1 << 1,
-	GEN_COMPAT	= 1 << 2,
-	GEN_IMGS	= 1 << 3,
-	GEN_IMG		= 1 << 4,
-	GEN_DATA	= 1 << 5,
-	GEN_EXT_DATA	= 1 << 6,
-	GEN_DATA_SIZE	= 1 << 7,
+	GEN_CFGS		= 1 << 0,
+	GEN_CFG			= 1 << 1,
+	GEN_COMPAT		= 1 << 2,
+	GEN_IMGS		= 1 << 3,
+	GEN_IMG			= 1 << 4,
+	GEN_DATA		= 1 << 5,
+	GEN_EXT_DATA		= 1 << 6,
+	GEN_DATA_SIZE		= 1 << 7,
+	GEN_CRC32_ALGO		= 1 << 8,
+	GEN_CRC32_VAL		= 1 << 9,
+	GEN_CRC32_BAD_SIZE	= 1 << 10,
+	GEN_CRC32_BAD_VAL	= 1 << 11,
+	GEN_BAD_ALGO		= 1 << 12,
 };
 
 /* Size of the test FIT we use */
@@ -129,8 +139,18 @@ static int build_fit(char *buf, int size, int flags)
 
 			/* /images/firmware-1/hash-1 */
 			fdt_begin_node(buf, "hash-1");
-			fdt_property_string(buf, "algo", "crc32");
-			fdt_property_u32(buf, "entry", 0xa738ea1c);
+			if (flags & GEN_CRC32_ALGO)
+				fdt_property_string(buf, "algo", "crc32");
+			if (flags & GEN_BAD_ALGO)
+				fdt_property_string(buf, "algo", "wibble");
+
+			/* This is the corrrect crc32 for "abc" */
+			if (flags & GEN_CRC32_VAL)
+				fdt_property_u32(buf, "value", 0x4788814e);
+			if (flags & GEN_CRC32_BAD_VAL)
+				fdt_property_u32(buf, "value", 0xa738ea1c);
+			if (flags & GEN_CRC32_BAD_SIZE)
+				fdt_property(buf, "value", "hi", 2);
 			fdt_end_node(buf);
 
 			/* /images/firmware-1 */
@@ -338,6 +358,118 @@ static int test_ext_data(void)
 	return 0;
 }
 
+/* Check data with CRC32 */
+static int test_crc32(void)
+{
+	struct fit_info s_fit, *fit = &s_fit;
+	int size, cfg, img;
+	const char *data;
+	int node;
+
+	/* Missing 'algo' property gives an error when 'value' is provided */
+	CALL(build_fit(fit_buf, FIT_SIZE,
+		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG |
+		       GEN_DATA | GEN_CRC32_VAL));
+	CALL(fit_open(fit, fit_buf, FIT_SIZE));
+
+	cfg = fit_first_cfg(fit);
+	img = fit_cfg_img(fit, cfg, "firmware", 0);
+	CHECK(img > 0);
+
+	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
+	data = fit_img_data(fit, img, &size);
+	CHECKEQ_NULL(data);
+	CHECKEQ(-FITE_MISSING_ALGO, size);
+	fit_close(fit);
+
+	/* Unkonwn 'algo' property gives an error when 'value' is provided */
+	CALL(build_fit(fit_buf, FIT_SIZE,
+		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG |
+		       GEN_DATA | GEN_BAD_ALGO | GEN_CRC32_VAL));
+	CALL(fit_open(fit, fit_buf, FIT_SIZE));
+
+	cfg = fit_first_cfg(fit);
+	img = fit_cfg_img(fit, cfg, "firmware", 0);
+	CHECK(img > 0);
+
+	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
+	data = fit_img_data(fit, img, &size);
+	CHECKEQ_NULL(data);
+	CHECKEQ(-FITE_UNKNOWN_ALGO, size);
+	fit_close(fit);
+
+	/* Missing 'value' property means the hash is ignored */
+	CALL(build_fit(fit_buf, FIT_SIZE,
+		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG |
+		       GEN_DATA | GEN_CRC32_ALGO));
+	CALL(fit_open(fit, fit_buf, FIT_SIZE));
+
+	cfg = fit_first_cfg(fit);
+	img = fit_cfg_img(fit, cfg, "firmware", 0);
+	CHECK(img > 0);
+
+	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
+	data = fit_img_data(fit, img, &size);
+	CHECK(data != NULL);
+	CHECK(!strncmp(data, "abc", 3));
+
+	/* ...but we can see that the hash value as missing */
+	node = fdt_first_subnode(fit->blob, img);
+	CHECK(node > 0);
+	CHECKEQ(-FITE_MISSING_VALUE, fit_check_hash(fit, node, "abc", 3));
+	fit_close(fit);
+
+	/* 'value' and 'algo' present but the value size is wrong */
+	CALL(build_fit(fit_buf, FIT_SIZE,
+		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG |
+		       GEN_DATA | GEN_CRC32_ALGO | GEN_CRC32_BAD_SIZE));
+	CALL(fit_open(fit, fit_buf, FIT_SIZE));
+
+	cfg = fit_first_cfg(fit);
+	img = fit_cfg_img(fit, cfg, "firmware", 0);
+	CHECK(img > 0);
+
+	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
+	data = fit_img_data(fit, img, &size);
+	CHECKEQ_NULL(data);
+	CHECKEQ(-FITE_INVALID_HASH_SIZE, size);
+	fit_close(fit);
+
+	/* 'value' and 'algo' present but the value is wrong */
+	CALL(build_fit(fit_buf, FIT_SIZE,
+		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG |
+		       GEN_DATA | GEN_CRC32_ALGO | GEN_CRC32_BAD_VAL));
+	CALL(fit_open(fit, fit_buf, FIT_SIZE));
+
+	cfg = fit_first_cfg(fit);
+	img = fit_cfg_img(fit, cfg, "firmware", 0);
+	CHECK(img > 0);
+
+	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
+	data = fit_img_data(fit, img, &size);
+	CHECKEQ_NULL(data);
+	CHECKEQ(-FITE_HASH_MISMATCH, size);
+	fit_close(fit);
+
+	/* 'value' and 'algo' present with correct value */
+	CALL(build_fit(fit_buf, FIT_SIZE,
+		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG |
+		       GEN_DATA | GEN_CRC32_ALGO | GEN_CRC32_VAL));
+	CALL(fit_open(fit, fit_buf, FIT_SIZE));
+
+	cfg = fit_first_cfg(fit);
+	img = fit_cfg_img(fit, cfg, "firmware", 0);
+	CHECK(img > 0);
+
+	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
+	data = fit_img_data(fit, img, &size);
+	CHECKEQ_NULL(data);
+	CHECKEQ(-FITE_HASH_MISMATCH, size);
+	fit_close(fit);
+
+	return 0;
+}
+
 int fit_test(void)
 {
 	g_info("Running tests\n");
@@ -347,6 +479,7 @@ int fit_test(void)
 	CALL(test_img());
 	CALL(test_data());
 	CALL(test_ext_data());
+	CALL(test_crc32());
 
 	return 0;
 }
