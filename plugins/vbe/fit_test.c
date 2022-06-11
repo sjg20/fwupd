@@ -239,13 +239,13 @@ static int test_cfg(void)
 	return 0;
 }
 
+/* Normal FIT with compatible string and image but no data */
 static int test_img(void)
 {
 	struct fit_info s_fit, *fit = &s_fit;
 	int size, cfg, img;
 	const char *data;
 
-	/* Normal FIT with compatible string and only an /images node */
 	CALL(build_fit(fit_buf, FIT_SIZE,
 		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS));
 	CALL(fit_open(fit, fit_buf, FIT_SIZE));
@@ -265,7 +265,7 @@ static int test_img(void)
 	CHECK(img > 0);
 
 	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
-	data = fit_img_raw_data(fit, img, &size);
+	data = fit_img_data(fit, img, &size);
 	CHECKEQ_NULL(data);
 	CHECKEQ(-FITE_NOT_FOUND, size);
 	fit_close(fit);
@@ -273,6 +273,7 @@ static int test_img(void)
 	return 0;
 }
 
+/* Normal FIT with data as well */
 static int test_data(void)
 {
 	struct fit_info s_fit, *fit = &s_fit;
@@ -290,7 +291,7 @@ static int test_data(void)
 	CHECK(img > 0);
 
 	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
-	data = fit_img_raw_data(fit, img, &size);
+	data = fit_img_data(fit, img, &size);
 	CHECKEQ(3, size);
 	CHECK(!strncmp(data, "abc", 3));
 
@@ -300,13 +301,13 @@ static int test_data(void)
 	return 0;
 }
 
+/* Normal FIT with external data */
 static int test_ext_data(void)
 {
 	struct fit_info s_fit, *fit = &s_fit;
 	int size, cfg, img;
 	const char *data;
 
-	/* With data as well */
 	CALL(build_fit(fit_buf, FIT_SIZE,
 		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG |
 		       GEN_EXT_DATA));
@@ -315,7 +316,7 @@ static int test_ext_data(void)
 	cfg = fit_first_cfg(fit);
 	img = fit_cfg_img(fit, cfg, "firmware", 0);
 
-	data = fit_img_raw_data(fit, img, &size);
+	data = fit_img_data(fit, img, &size);
 	CHECKEQ_NULL(data);
 	CHECKEQ(-FITE_MISSING_SIZE, size);
 	fit_close(fit);
@@ -328,7 +329,7 @@ static int test_ext_data(void)
 	cfg = fit_first_cfg(fit);
 	img = fit_cfg_img(fit, cfg, "firmware", 0);
 
-	data = fit_img_raw_data(fit, img, &size);
+	data = fit_img_data(fit, img, &size);
 	CHECKEQ(3, size);
 	CHECK(data != NULL);
 	CHECK(!strncmp(data, "abc", 3));

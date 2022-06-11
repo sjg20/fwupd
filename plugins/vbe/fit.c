@@ -14,6 +14,7 @@
 #include "config.h"
 
 #include <libfdt.h>
+#include <zlib.h>
 #include "fit.h"
 
 #define FIT_CONFIG_PATH		"/configurations"
@@ -21,7 +22,10 @@
 
 #define FIT_PROP_COMPATIBLE	"compatible"
 #define FIT_PROP_DATA		"data"
-
+#define FIT_PROP_ALGO		"algo"
+#define FIT_PROP_DATA_OFFSET	"data-offset"
+#define FIT_PROP_DATA_SIZE	"data-size"
+#define FIT_PROP_VALUE		"value"
 
 static const char *const fit_err[FITE_COUNT] = {
 	[FITE_BAD_HEADER]	= "Bad device tree header",
@@ -30,6 +34,15 @@ static const char *const fit_err[FITE_COUNT] = {
 	[FITE_NO_IMAGES_NODE]	= "Missing /images node",
 	[FITE_MISSING_IMAGE]	= "Missing image referred to by configuration",
 	[FITE_MISSING_SIZE]	= "Missing data-size for external data",
+	[FITE_MISSING_VALUE]	= "Missing value property for hash",
+	[FITE_MISSING_ALGO]	= "Missing algo property for hash",
+	[FITE_UNKNOWN_ALGO]	= "Unknown algo name",
+	[FITE_INVALID_HASH_SIZE] = "Invalid hash value size",
+	[FITE_HASH_MISMATCH]	= "Calculated hash value does not match",
+};
+
+static const char *const fit_algo[FIT_ALGO_COUNT] = {
+	[FIT_ALGO_CRC32]	= "crc32",
 };
 
 int fit_open(struct fit_info *fit, const void *buf, size_t size)
@@ -144,14 +157,87 @@ const char *fit_img_name(struct fit_info *fit, int img)
 	return fdt_get_name(fit->blob, img, NULL);
 }
 
-const char *fit_img_raw_data(struct fit_info *fit, int img, int *sizep)
+static enum fit_algo_t fit_get_algo(struct fit_info *fit, int node)
+{
+	const char *algo;
+	int i;
+
+	algo = fdt_getprop(fit->blob, node, FIT_PROP_ALGO, NULL);
+	if (!algo)
+		return -FITE_MISSING_ALGO;
+
+	for (i = 0; i < FIT_ALGO_COUNT; i++) {
+		if (!strcmp(fit_algo[i], algo))
+			return i;
+	}
+
+	return -FITE_UNKNOWN_ALGO;
+}
+
+static int fit_check_hash(struct fit_info *fit, int node, const char *data,
+			  int size)
+{
+	enum fit_algo_t algo;
+	const char *value;
+	int val_size;
+
+	value = fdt_getprop(fit->blob, node, FIT_PROP_VALUE, &val_size);
+	if (!value)
+		return -FITE_MISSING_VALUE;
+
+	/* Only check the algo after we have found a value */
+	algo = fit_get_algo(fit, node);
+	if (algo < 0)
+		return algo;
+
+	switch (algo) {
+	case FIT_ALGO_CRC32: {
+		unsigned long actual;
+		unsigned long expect;
+
+		if (val_size != 4)
+			return -FITE_INVALID_HASH_SIZE;
+		expect = fdt32_to_cpu(*(fdt32_t *)value);
+		actual = crc32(0, (unsigned char *)data, size);
+		if (expect != actual)
+			return -FITE_HASH_MISMATCH;
+		break;
+	}
+	default:
+		return -FITE_UNKNOWN_ALGO;
+	}
+
+	return 0;
+}
+
+int fit_check_hashes(struct fit_info *fit, int img, const char *data, int size)
+{
+	int node;
+	int ret;
+
+	for (node = fdt_first_subnode(fit->blob, img); node > 0;
+	     node = fdt_next_subnode(fit->blob, node)) {
+		if (!strncmp("hash", fdt_get_name(fit->blob, node, NULL), 4)) {
+			ret = fit_check_hash(fit, node, data, size);
+
+			/* If the value is missing, we don't check it */
+			if (ret && ret != -FITE_MISSING_VALUE)
+				return ret;
+		}
+	}
+
+	return 0;
+}
+
+const char *fit_img_data(struct fit_info *fit, int img, int *sizep)
 {
 	const char *data;
-	int offset;
+	int offset, size;
+	int ret;
 
-	if (!fit_getprop_u32(fit, img, "data-offset", &offset)) {
+	if (!fit_getprop_u32(fit, img, FIT_PROP_DATA_OFFSET, &offset)) {
 		data = fit->blob + ((fdt_totalsize(fit->blob) + 3) & ~3);
-		if (fit_getprop_u32(fit, img, "data-size", sizep)) {
+		if (fit_getprop_u32(fit, img, FIT_PROP_DATA_SIZE, sizep)) {
 			*sizep = -FITE_MISSING_SIZE;
 			return NULL;
 		}
@@ -159,11 +245,18 @@ const char *fit_img_raw_data(struct fit_info *fit, int img, int *sizep)
 		return data;
 	}
 
-	data = fdt_getprop(fit->blob, img, FIT_PROP_DATA, sizep);
+	data = fdt_getprop(fit->blob, img, FIT_PROP_DATA, &size);
 	if (!data) {
 		*sizep = -FITE_NOT_FOUND;
 		return NULL;
 	}
+
+	ret = fit_check_hashes(fit, img, data, size);
+	if (ret) {
+		 *sizep = ret;
+		 return NULL;
+	}
+	*sizep = size;
 
 	return data;
 }

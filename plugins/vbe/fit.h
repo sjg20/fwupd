@@ -10,13 +10,21 @@
 #ifndef __FU_PLUGIN_VBE_FIT_H
 #define __FU_PLUGIN_VBE_FIT_H
 
-/** Functions returning an error provide a negated value from this list
+/**
+ * Functions returning an error provide a negated value from this list
  *
  * @FITE_BAD_HEADER: Device tree header is not valid
  * @FITE_NO_CONFIG_NODE: The /configurations node is missing
  * @EFIT_NOT_FOUND: No (more) items found
  * @FITE_NO_IMAGES_NODE: The /images node is missing
  * @FITE_MISSING_IMAGE: An image referred to in a configuration is missing
+ * @FITE_MISSING_SIZE: An external image does not have an 'image-size' property
+ * @FITE_MISSING_VALUE: An image hash does not have a 'value' property
+ * @FITE_MISSING_ALGO: An image hash does not have an 'algo' property
+ * @FITE_UNKNOWN_ALGO: An unknown algorithm name was provided
+ * @FITE_INVALID_HASH_SIZE: The hash value is not the right size for the algo
+ * @FITE_HASH_MISMATCH: Hash value calculated from data contents doesn't match
+ *	its value in the 'value' property
  */
 enum fit_err_t {
 	FIT_ERR_OK = 0,
@@ -26,8 +34,24 @@ enum fit_err_t {
 	FITE_NO_IMAGES_NODE,
 	FITE_MISSING_IMAGE,
 	FITE_MISSING_SIZE,
+	FITE_MISSING_VALUE,
+	FITE_MISSING_ALGO,
+	FITE_UNKNOWN_ALGO,
+	FITE_INVALID_HASH_SIZE,
+	FITE_HASH_MISMATCH,
 
 	FITE_COUNT,
+};
+
+/**
+ * enum fit_algo_t - Algorithm used to hash an image
+ *
+ * @FIT_ALGO_CRC32: Use crc32
+ */
+enum fit_algo_t {
+	FIT_ALGO_CRC32,
+
+	FIT_ALGO_COUNT
 };
 
 struct fit_info {
@@ -148,11 +172,13 @@ int fit_cfg_img(struct fit_info *fit, int cfg, const char *prop_name,
 const char *fit_img_name(struct fit_info *fit, int img);
 
 /**
- * fit_img_raw_data() - Get the data from an image node
+ * fit_img_data() - Get the data from an image node
  *
  * This handles both internal and external data. It does not handle the
  * data-position property, only data-offset sinze there is no absolute memory
  * addressing available in this library.
+ *
+ * If any hashes are provided they are checked.
  *
  * @fit: FIT to check
  * @img: Offset of image node
@@ -160,6 +186,8 @@ const char *fit_img_name(struct fit_info *fit, int img);
  * this returns the error code
  * Returns: Pointer to image or NULL if not found
  */
-const char *fit_img_raw_data(struct fit_info *fit, int img, int *sizep);
+const char *fit_img_data(struct fit_info *fit, int img, int *sizep);
+
+int fit_check_hashes(struct fit_info *fit, int img, const char *data, int size);
 
 #endif /* __FU_PLUGIN_VBE_FIT_H */

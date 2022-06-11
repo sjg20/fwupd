@@ -241,7 +241,7 @@ static gboolean process_image(struct fit_info *fit, int img,
 	int size;
 
 	g_info("Writing image '%s'\n", fit_img_name(fit, img));
-	buf = fit_img_raw_data(fit, img, &size);
+	buf = fit_img_data(fit, img, &size);
 	data = g_bytes_new(buf, size);
 
 	return TRUE;
