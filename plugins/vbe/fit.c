@@ -294,17 +294,3 @@ int fit_img_store_offset(struct fit_info *fit, int img)
 
 	return offset;
 }
-
-int fit_img_skip_offset(struct fit_info *fit, int img)
-{
-	int offset;
-	int ret;
-
-	ret = fit_getprop_u32(fit, img, FIT_PROP_SKIP_OFFSET, &offset);
-	if (ret < 0)
-		return ret;
-	if (offset < 0)
-		return -FITE_NEGATIVE_OFFSET;
-
-	return offset;
-}

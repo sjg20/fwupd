@@ -41,6 +41,11 @@
  * @devname: Device name (e.g. /dev/mmcblk1)
  * @area_start: Start offset of area for firmware
  * @area_size: Size of firmware area
+ * @skip_offset: This allows an initial part of the image to be skipped when
+ * writing. This means that the first part of the image is ignored, with just
+ * the latter part being written. For example, if this is 0x200 then the first
+ * 512 bytes of the image (which must be present in the image) are skipped and
+ * the bytes after that are written to the store offset.
  * @fd: File descriptor, if the device is open
  */
 struct _FuVbeSimpleDevice {
@@ -54,6 +59,7 @@ struct _FuVbeSimpleDevice {
 	const gchar *devname;
 	off_t area_start;
 	off_t area_size;
+	int skip_offset;
 	int fd;
 };
 
@@ -149,14 +155,27 @@ fu_vbe_simple_device_probe(FuDevice *device, GError **error)
 			return FALSE;
 		}
 	}
-	dev->area_start = fdt_get_u32(dev->fdt, dev->node, "image-start");
-	dev->area_size = fdt_get_u32(dev->fdt, dev->node, "image-size");
+	dev->area_start = fdt_get_u32(dev->fdt, dev->node, "area-start");
+	dev->area_size = fdt_get_u32(dev->fdt, dev->node, "area-size");
 	if (dev->area_start < 0 || dev->area_size < 0) {
 		g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_NOT_SUPPORTED,
-			    "Invalid/missing image start / size (%#jx / %#jx)",
+			    "Invalid/missing area start / size (%#jx / %#jx)",
 		            (uintmax_t)dev->area_start,
 			    (uintmax_t)dev->area_size);
 		return FALSE;
+	}
+
+	/*
+	 * We allow the skip offset to skip everything, which could be useful
+	 * for testing
+	 */
+	dev->skip_offset = fdt_get_u32(dev->fdt, dev->node, "skip-offset");
+	if (dev->skip_offset > dev->area_size) {
+		g_error("Store offset %#x is larger than size (%jx)",
+			(unsigned)dev->skip_offset, (uintmax_t)dev->area_size);
+		return FALSE;
+	} else if (dev->skip_offset < 0) {
+		dev->skip_offset = 0;
 	}
 
 	g_info("Selected device '%s', start %#jx, size %#jx", dev->devname,
@@ -239,7 +258,6 @@ static gboolean process_image(struct fit_info *fit, int img,
 {
 	g_autoptr(GBytes) data = NULL;
 	unsigned int store_offset = 0;
-	unsigned int skip_offset = 0;
 	const char *buf;
 	off_t seek_to;
 	int size;
@@ -248,16 +266,6 @@ static gboolean process_image(struct fit_info *fit, int img,
 	ret = fit_img_store_offset(fit, img);
 	if (ret >= 0) {
 		store_offset = ret;
-	} else if (ret != -FITE_NOT_FOUND) {
-		g_error("Image '%s' store offset is invalid (%d)",
-			fit_img_name(fit, img), ret);
-		return FALSE;
-	}
-
-	ret = fit_img_skip_offset(fit, img);
-	g_info("ret=%d\n", ret);
-	if (ret >= 0) {
-		skip_offset = ret;
 	} else if (ret != -FITE_NOT_FOUND) {
 		g_error("Image '%s' store offset is invalid (%d)",
 			fit_img_name(fit, img), ret);
@@ -278,17 +286,17 @@ static gboolean process_image(struct fit_info *fit, int img,
 		return FALSE;
 	}
 
-	if (skip_offset >= (unsigned)size) {
+	if (dev->skip_offset >= size) {
 		g_error("Image '%s' skip_offset=%#x, size=%#x, area_size=%#jx",
 			fit_img_name(fit, img), (unsigned int)store_offset,
 			(unsigned int)size, (uintmax_t)dev->area_size);
 		return FALSE;
 	}
 
-	seek_to = dev->area_start + store_offset + skip_offset;
+	seek_to = dev->area_start + store_offset + dev->skip_offset;
 	g_info("Writing image '%s' size %x (skipping %x) to store_offset %x, seek %jx\n",
-	       fit_img_name(fit, img), (unsigned)size, (unsigned)skip_offset,
-	       store_offset, (uintmax_t)seek_to);
+	       fit_img_name(fit, img), (unsigned)size,
+	       (unsigned)dev->skip_offset, store_offset, (uintmax_t)seek_to);
 	data = g_bytes_new(buf, size);
 
 	/* notify UI */
