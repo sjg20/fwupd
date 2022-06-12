@@ -246,7 +246,7 @@ static gboolean process_image(struct fit_info *fit, int img,
 	int ret;
 
 	ret = fit_img_store_offset(fit, img);
-	if (!ret) {
+	if (ret >= 0) {
 		store_offset = ret;
 	} else if (ret != -FITE_NOT_FOUND) {
 		g_error("Image '%s' store offset is invalid (%d)",
@@ -255,7 +255,7 @@ static gboolean process_image(struct fit_info *fit, int img,
 	}
 
 	ret = fit_img_skip_offset(fit, img);
-	if (!ret) {
+	if (ret >= 0) {
 		skip_offset = ret;
 	} else if (ret != -FITE_NOT_FOUND) {
 		g_error("Image '%s' store offset is invalid (%d)",
