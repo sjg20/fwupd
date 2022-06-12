@@ -13,6 +13,7 @@
 /**
  * Functions returning an error provide a negated value from this list
  *
+ * @FIT_ERR_OK: Zero value indicating no error
  * @FITE_BAD_HEADER: Device tree header is not valid
  * @FITE_NO_CONFIG_NODE: The /configurations node is missing
  * @EFIT_NOT_FOUND: No (more) items found

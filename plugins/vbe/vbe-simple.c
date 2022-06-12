@@ -255,6 +255,7 @@ static gboolean process_image(struct fit_info *fit, int img,
 	}
 
 	ret = fit_img_skip_offset(fit, img);
+	g_info("ret=%d\n", ret);
 	if (ret >= 0) {
 		skip_offset = ret;
 	} else if (ret != -FITE_NOT_FOUND) {
