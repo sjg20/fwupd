@@ -15,6 +15,9 @@
 #include "vbe-simple.h"
 #include "fit_test.h"
 
+/* Kernel device tree, used for system information */
+#define KERNEL_DT	"/sys/firmware/fdt"
+
 /* File to use for system information where the system has no device tree */
 #define SYSTEM_DT	"system.dtb"
 
@@ -194,14 +197,24 @@ fu_plugin_vbe_startup(FuPlugin *plugin, GError **error)
 	vbe_dir = g_build_filename(state_dir, "vbe", NULL);
 	priv->vbe_dir = g_steal_pointer(&vbe_dir);
 
-	/* Read in the system info */
-	bfname = g_build_filename(priv->vbe_dir, SYSTEM_DT, NULL);
+	/* Check if we have a kernel device tree */
+	bfname = g_build_filename(priv->vbe_dir, KERNEL_DT, NULL);
 	if (!g_file_get_contents(bfname, &buf, &len, error)) {
-		g_warning("Cannot find system DT '%s'", bfname);
-		return FALSE;
+		g_free(bfname);
+		g_warning("No kernel device tree '%s'", bfname);
+
+		/* Read in the system info */
+		g_free(bfname);
+		bfname = g_build_filename(priv->vbe_dir, SYSTEM_DT, NULL);
+		if (!g_file_get_contents(bfname, &buf, &len, error)) {
+			g_warning("Cannot find system DT '%s'", bfname);
+			g_free(bfname);
+			return FALSE;
+		}
 	}
 	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "Processing system DT '%s'",
 	      bfname);
+	g_free(bfname);
 	priv->fdt = buf;
 	if (!process_system(priv, buf, len, error)) {
 		g_info("Failed: %s", (*error)->message);
