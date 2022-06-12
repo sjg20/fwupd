@@ -310,15 +310,15 @@ static gboolean process_image(struct fit_info *fit, int img,
 			    strerror(errno));
 		return FALSE;
 	}
-/*
-	ret = write(dev->fd, data, size);
+
+	ret = write(dev->fd, data, size - dev->skip_offset);
 	if (ret < 0) {
 		g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_WRITE,
 			    "Cannot write file '%s' (%s)", dev->devname,
 			    strerror(errno));
 		return FALSE;
 	}
-*/
+
 	return TRUE;
 }
 
