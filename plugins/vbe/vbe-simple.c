@@ -256,7 +256,6 @@ static gboolean process_image(struct fit_info *fit, int img,
 			      struct _FuVbeSimpleDevice *dev,
 			      FuProgress *progress, GError **error)
 {
-	g_autoptr(GBytes) data = NULL;
 	unsigned int store_offset = 0;
 	const char *buf;
 	off_t seek_to;
@@ -297,7 +296,6 @@ static gboolean process_image(struct fit_info *fit, int img,
 	g_info("Writing image '%s' size %x (skipping %x) to store_offset %x, seek %jx\n",
 	       fit_img_name(fit, img), (unsigned)size,
 	       (unsigned)dev->skip_offset, store_offset, (uintmax_t)seek_to);
-	data = g_bytes_new(buf, size);
 
 	/* notify UI */
 	fu_progress_set_status(progress, FWUPD_STATUS_DEVICE_WRITE);
@@ -311,7 +309,7 @@ static gboolean process_image(struct fit_info *fit, int img,
 		return FALSE;
 	}
 
-	ret = write(dev->fd, data, size - dev->skip_offset);
+	ret = write(dev->fd, buf + dev->skip_offset, size - dev->skip_offset);
 	if (ret < 0) {
 		g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_WRITE,
 			    "Cannot write file '%s' (%s)", dev->devname,

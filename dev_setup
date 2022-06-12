@@ -24,3 +24,4 @@ sudo build/src/fwupdtool install plugins/vbe/example/Vbe-Board-0.0.2.cab ea1b96e
 
 dd if=/dev/zero of=/tmp/testfw bs=1M count=3
 
+sudo rm fred.bin; sudo build/src/fwupdtool firmware-dump fred.bin 0f7d0d088b6ea936fb25b477722d734706fe8b40 --help
