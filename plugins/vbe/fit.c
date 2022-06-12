@@ -42,6 +42,7 @@ static const char *const fit_err[FITE_COUNT] = {
 	[FITE_HASH_MISMATCH]	= "Calculated hash value does not match",
 	[FITE_NEGATIVE_OFFSET]	= "Image has negative store-offset or data-offset",
 	[FITE_DATA_OFFSET_RANGE] = "Image data-offset is out of range of data",
+	[FITE_NEGATIVE_SIZE]	= "Image data-size is a negative value",
 };
 
 static const char *const fit_algo[FIT_ALGO_COUNT] = {
@@ -248,6 +249,10 @@ const char *fit_img_data(struct fit_info *fit, int img, int *sizep)
 
 		if (offset < 0) {
 			*sizep = -FITE_NEGATIVE_OFFSET;
+			return NULL;
+		}
+		if (size < 0) {
+			*sizep = -FITE_NEGATIVE_SIZE;
 			return NULL;
 		}
 		start = (fdt_totalsize(fit->blob) + 3) & ~3;

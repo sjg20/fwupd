@@ -30,6 +30,7 @@
  * @FITE_DATA_OFFSET_RANGE: Image data-offset is out of range of the available
  *	data. This means that it extends past the end of the external data
  *	attached to the end of the FIT
+ * @FITE_NEGATIVE_SIZE: Image data-size is a negative value (must be positive)
  */
 enum fit_err_t {
 	FIT_ERR_OK = 0,
@@ -46,6 +47,7 @@ enum fit_err_t {
 	FITE_HASH_MISMATCH,
 	FITE_NEGATIVE_OFFSET,
 	FITE_DATA_OFFSET_RANGE,
+	FITE_NEGATIVE_SIZE,
 
 	FITE_COUNT,
 };

@@ -71,6 +71,8 @@
  * @GEN_CRC32_BAD_VAL: Generate a bad crc32 value for the data
  * @GEN_BAD_ALGO: Generate an unknown algo property
  * @GEN_STORE_OFFSET: Generate a store-offset for the image
+ * @GEN_BAD_DATA_SIZE: Generate a negative data-size property
+ * @GEN_BAD_DATA_OFFSET: Generate a negative data-offset property
  */
 enum gen_t {
 	GEN_CFGS		= 1 << 0,
@@ -87,6 +89,8 @@ enum gen_t {
 	GEN_CRC32_BAD_VAL	= 1 << 11,
 	GEN_BAD_ALGO		= 1 << 12,
 	GEN_STORE_OFFSET	= 1 << 13,
+	GEN_BAD_DATA_SIZE	= 1 << 14,
+	GEN_BAD_DATA_OFFSET	= 1 << 15,
 };
 
 /* Size of the test FIT we use */
@@ -139,10 +143,17 @@ static int build_fit(char *buf, int size, int flags)
 				fdt_property(buf, "data", "abc", 3);
 
 			if (flags & GEN_EXT_DATA) {
-				fdt_property_u32(buf, "data-offset",
-						 data_offset);
+				if (flags & GEN_BAD_DATA_OFFSET) {
+					fdt_property_u32(buf, "data-offset",
+							 -3);
+				} else {
+					fdt_property_u32(buf, "data-offset",
+							 data_offset);
+				}
 				if (flags & GEN_DATA_SIZE)
 					fdt_property_u32(buf, "data-size", 3);
+				if (flags & GEN_BAD_DATA_SIZE)
+					fdt_property_u32(buf, "data-size", -3);
 			}
 
 			/* /images/firmware-1/hash-1 */
@@ -337,6 +348,7 @@ static int test_ext_data(void)
 	int size, cfg, img;
 	const char *data;
 
+	/* Test with missing data-size property */
 	CALL(build_fit(fit_buf, FIT_SIZE,
 		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG |
 		       GEN_EXT_DATA));
@@ -350,6 +362,35 @@ static int test_ext_data(void)
 	CHECKEQ(-FITE_MISSING_SIZE, size);
 	fit_close(fit);
 
+	/* Test with bad data-size property */
+	CALL(build_fit(fit_buf, FIT_SIZE,
+		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG |
+		       GEN_EXT_DATA | GEN_BAD_DATA_SIZE));
+	CALL(fit_open(fit, fit_buf, FIT_SIZE));
+
+	cfg = fit_first_cfg(fit);
+	img = fit_cfg_img(fit, cfg, "firmware", 0);
+
+	data = fit_img_data(fit, img, &size);
+	CHECKEQ_NULL(data);
+	CHECKEQ(-FITE_NEGATIVE_SIZE, size);
+	fit_close(fit);
+
+	/* Test with bad data-offset property */
+	CALL(build_fit(fit_buf, FIT_SIZE,
+		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG |
+		       GEN_EXT_DATA | GEN_DATA_SIZE | GEN_BAD_DATA_OFFSET));
+	CALL(fit_open(fit, fit_buf, FIT_SIZE));
+
+	cfg = fit_first_cfg(fit);
+	img = fit_cfg_img(fit, cfg, "firmware", 0);
+
+	data = fit_img_data(fit, img, &size);
+	CHECKEQ_NULL(data);
+	CHECKEQ(-FITE_NEGATIVE_OFFSET, size);
+	fit_close(fit);
+
+	/* Test with valid data-size property */
 	CALL(build_fit(fit_buf, FIT_SIZE,
 		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG |
 		       GEN_EXT_DATA | GEN_DATA_SIZE));
