@@ -255,7 +255,8 @@ int fit_img_store_offset(struct fit_info *fit, int img);
  * This allows an initial part of the image to be skipped when writing. This
  * means that the first part of the image is ignored, with just the latter part
  * being written. For example, if this is 0x200 then the first 512 bytes of the
- * image are skipped and the bytes after that are written to the store offset.
+ * image (which must be present in the image) are skipped and the bytes after
+ * that are written to the store offset.
  *
  * @fit: FIT to check
  * @img: Offset of image node

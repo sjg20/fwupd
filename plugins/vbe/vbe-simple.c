@@ -39,8 +39,8 @@
  * #compat_len: Length of @compat in bytes
  * @storage: Storage device name (e.g. "mmc1")
  * @devname: Device name (e.g. /dev/mmcblk1)
- * @image_start: Start offset for firmware
- * @image_size: Size of firmware area
+ * @area_start: Start offset of area for firmware
+ * @area_size: Size of firmware area
  * @fd: File descriptor, if the device is open
  */
 struct _FuVbeSimpleDevice {
@@ -52,8 +52,8 @@ struct _FuVbeSimpleDevice {
 	int compat_len;
 	const gchar *storage;
 	const gchar *devname;
-	off_t image_start;
-	off_t image_size;
+	off_t area_start;
+	off_t area_size;
 	int fd;
 };
 
@@ -149,18 +149,18 @@ fu_vbe_simple_device_probe(FuDevice *device, GError **error)
 			return FALSE;
 		}
 	}
-	dev->image_start = fdt_get_u32(dev->fdt, dev->node, "image-start");
-	dev->image_size = fdt_get_u32(dev->fdt, dev->node, "image-size");
-	if (dev->image_start < 0 || dev->image_size < 0) {
+	dev->area_start = fdt_get_u32(dev->fdt, dev->node, "image-start");
+	dev->area_size = fdt_get_u32(dev->fdt, dev->node, "image-size");
+	if (dev->area_start < 0 || dev->area_size < 0) {
 		g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_NOT_SUPPORTED,
 			    "Invalid/missing image start / size (%#jx / %#jx)",
-		            (uintmax_t)dev->image_start,
-			    (uintmax_t)dev->image_size);
+		            (uintmax_t)dev->area_start,
+			    (uintmax_t)dev->area_size);
 		return FALSE;
 	}
 
 	g_info("Selected device '%s', start %#jx, size %#jx", dev->devname,
-	       (uintmax_t)dev->image_start,(uintmax_t)dev->image_size);
+	       (uintmax_t)dev->area_start,(uintmax_t)dev->area_size);
 
 	return TRUE;
 }
@@ -238,15 +238,27 @@ static gboolean process_image(struct fit_info *fit, int img,
 			      FuProgress *progress, GError **error)
 {
 	g_autoptr(GBytes) data = NULL;
-	unsigned int offset = 0;
+	unsigned int store_offset = 0;
+	unsigned int skip_offset = 0;
 	const char *buf;
 	off_t seek_to;
 	int size;
 	int ret;
 
 	ret = fit_img_store_offset(fit, img);
-	if (ret <0 && ret != -FITE_NOT_FOUND) {
-		g_error("Image '%s' offset is invalid (%d)",
+	if (!ret) {
+		store_offset = ret;
+	} else if (ret != -FITE_NOT_FOUND) {
+		g_error("Image '%s' store offset is invalid (%d)",
+			fit_img_name(fit, img), ret);
+		return FALSE;
+	}
+
+	ret = fit_img_skip_offset(fit, img);
+	if (!ret) {
+		skip_offset = ret;
+	} else if (ret != -FITE_NOT_FOUND) {
+		g_error("Image '%s' store offset is invalid (%d)",
 			fit_img_name(fit, img), ret);
 		return FALSE;
 	}
@@ -258,17 +270,24 @@ static gboolean process_image(struct fit_info *fit, int img,
 		return FALSE;
 	}
 
-	if (offset + size > dev->image_size) {
-		g_error("Image '%s' offset=%#x, size=%#x, image_size=%#jx",
-			fit_img_name(fit, img), (unsigned int)offset,
-			(unsigned int)size, (uintmax_t)dev->image_size);
+	if (store_offset + size > dev->area_size) {
+		g_error("Image '%s' store_offset=%#x, size=%#x, area_size=%#jx",
+			fit_img_name(fit, img), (unsigned int)store_offset,
+			(unsigned int)size, (uintmax_t)dev->area_size);
 		return FALSE;
 	}
 
-	seek_to = dev->image_start + offset;
-	g_info("Writing image '%s' size %x to offset %x, seek %jx\n",
-	       fit_img_name(fit, img), (unsigned int)size, offset,
-	       (uintmax_t)seek_to);
+	if (skip_offset >= (unsigned)size) {
+		g_error("Image '%s' skip_offset=%#x, size=%#x, area_size=%#jx",
+			fit_img_name(fit, img), (unsigned int)store_offset,
+			(unsigned int)size, (uintmax_t)dev->area_size);
+		return FALSE;
+	}
+
+	seek_to = dev->area_start + store_offset + skip_offset;
+	g_info("Writing image '%s' size %x (skipping %x) to store_offset %x, seek %jx\n",
+	       fit_img_name(fit, img), (unsigned)size, (unsigned)skip_offset,
+	       store_offset, (uintmax_t)seek_to);
 	data = g_bytes_new(buf, size);
 
 	/* notify UI */
@@ -423,25 +442,25 @@ fu_vbe_simple_device_upload(FuDevice *device, FuProgress *progress, GError **err
 	/* notify UI */
 	fu_progress_set_status(progress, FWUPD_STATUS_DEVICE_READ);
 
-	ret = lseek(dev->fd, dev->image_start, SEEK_SET);
+	ret = lseek(dev->fd, dev->area_start, SEEK_SET);
 	if (ret < 0) {
 		g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_READ,
 			    "Cannot seek file '%s' (%d) to %#jx (%s)",
-			    dev->devname, dev->fd, (uintmax_t)dev->image_start,
+			    dev->devname, dev->fd, (uintmax_t)dev->area_start,
 			    strerror(errno));
 		return FALSE;
 	}
 
 	chunks = g_ptr_array_new_with_free_func((GDestroyNotify)g_bytes_unref);
 
-	for (upto = 0; upto < dev->image_size; upto += blksize) {
+	for (upto = 0; upto < dev->area_size; upto += blksize) {
 		g_autoptr(GBytes) chunk = NULL;
 		gsize toread;
 
 		buf = g_malloc(blksize);
 		toread = blksize;
-		if ((off_t)toread + upto > dev->image_size)
-			toread = dev->image_size - upto;
+		if ((off_t)toread + upto > dev->area_size)
+			toread = dev->area_size - upto;
 		g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "read %zx", toread);
 		ret = read(dev->fd, buf, toread);
 		if (ret < 0) {

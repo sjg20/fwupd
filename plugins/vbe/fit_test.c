@@ -74,6 +74,8 @@
  * @GEN_BAD_DATA_SIZE: Generate a negative data-size property
  * @GEN_BAD_DATA_OFFSET: Generate a negative data-offset property
  * @GEN_BAD_STORE_OFFSET: Generate a negative store-offset property
+ * @GEN_SKIP_OFFSET: Generate a skip-offset property
+ * @GEN_BAD_SKIP_OFFSET: Generate a bad negative skip-offset property
  */
 enum gen_t {
 	GEN_CFGS		= 1 << 0,
@@ -93,6 +95,8 @@ enum gen_t {
 	GEN_BAD_STORE_OFFSET	= 1 << 14,
 	GEN_BAD_DATA_SIZE	= 1 << 15,
 	GEN_BAD_DATA_OFFSET	= 1 << 16,
+	GEN_SKIP_OFFSET		= 1 << 17,
+	GEN_BAD_SKIP_OFFSET	= 1 << 18,
 };
 
 /* Size of the test FIT we use */
@@ -142,6 +146,10 @@ static int build_fit(char *buf, int size, int flags)
 				fdt_property_u32(buf, "store-offset", 0x1000);
 			if (flags & GEN_BAD_STORE_OFFSET)
 				fdt_property_u32(buf, "store-offset", -4);
+			if (flags & GEN_SKIP_OFFSET)
+				fdt_property_u32(buf, "skip-offset", 4);
+			if (flags & GEN_BAD_SKIP_OFFSET)
+				fdt_property_u32(buf, "skip-offset", -4);
 
 			if (flags & GEN_DATA)
 				fdt_property(buf, "data", "abc", 3);
@@ -524,7 +532,7 @@ static int test_crc32(void)
 	return 0;
 }
 
-/* Check data with store-offset*/
+/* Check data with store-offset */
 static int test_store_offset(void)
 {
 	struct fit_info s_fit, *fit = &s_fit;
@@ -574,6 +582,56 @@ static int test_store_offset(void)
 	return 0;
 }
 
+/* Check data with skip-offset */
+static int test_skip_offset(void)
+{
+	struct fit_info s_fit, *fit = &s_fit;
+	int cfg, img;
+
+	/* Missing 'skip-offset' property */
+	CALL(build_fit(fit_buf, FIT_SIZE,
+		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG));
+	CALL(fit_open(fit, fit_buf, FIT_SIZE));
+
+	cfg = fit_first_cfg(fit);
+	img = fit_cfg_img(fit, cfg, "firmware", 0);
+	CHECK(img > 0);
+
+	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
+	CHECKEQ(-FITE_NOT_FOUND, fit_img_skip_offset(fit, img));
+	fit_close(fit);
+
+	/* Negative 'skip-offset' property */
+	CALL(build_fit(fit_buf, FIT_SIZE,
+		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG |
+		       GEN_BAD_SKIP_OFFSET));
+	CALL(fit_open(fit, fit_buf, FIT_SIZE));
+
+	cfg = fit_first_cfg(fit);
+	img = fit_cfg_img(fit, cfg, "firmware", 0);
+	CHECK(img > 0);
+
+	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
+	CHECKEQ(-FITE_NEGATIVE_OFFSET, fit_img_skip_offset(fit, img));
+	fit_close(fit);
+
+	/* Valid 'skip-offset' property */
+	CALL(build_fit(fit_buf, FIT_SIZE,
+		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG |
+		       GEN_STORE_OFFSET | GEN_SKIP_OFFSET));
+	CALL(fit_open(fit, fit_buf, FIT_SIZE));
+
+	cfg = fit_first_cfg(fit);
+	img = fit_cfg_img(fit, cfg, "firmware", 0);
+	CHECK(img > 0);
+
+	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
+	CHECKEQ(4, fit_img_skip_offset(fit, img));
+	fit_close(fit);
+
+	return 0;
+}
+
 int fit_test(void)
 {
 	g_info("Running tests\n");
@@ -585,6 +643,7 @@ int fit_test(void)
 	CALL(test_ext_data());
 	CALL(test_crc32());
 	CALL(test_store_offset());
+	CALL(test_skip_offset());
 
 	return 0;
 }
