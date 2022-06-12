@@ -105,6 +105,8 @@ static char fit_buf[FIT_SIZE];
  */
 static int build_fit(char *buf, int size, int flags)
 {
+	const int data_offset = 4;
+
 	fdt_create(buf, size);
 	fdt_finish_reservemap(buf);
 
@@ -137,7 +139,8 @@ static int build_fit(char *buf, int size, int flags)
 				fdt_property(buf, "data", "abc", 3);
 
 			if (flags & GEN_EXT_DATA) {
-				fdt_property_u32(buf, "data-offset", 0);
+				fdt_property_u32(buf, "data-offset",
+						 data_offset);
 				if (flags & GEN_DATA_SIZE)
 					fdt_property_u32(buf, "data-size", 3);
 			}
@@ -189,8 +192,9 @@ static int build_fit(char *buf, int size, int flags)
 	fdt_finish(buf);
 
 	if (flags & GEN_EXT_DATA) {
-		char *data = buf + ((fdt_totalsize(buf) + 3) & ~3);
+		char *data;
 
+		data = buf + ((fdt_totalsize(buf) + 3) & ~3) + data_offset;
 		strcpy(data, "abc");
 	}
 

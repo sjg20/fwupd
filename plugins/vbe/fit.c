@@ -239,25 +239,36 @@ const char *fit_img_data(struct fit_info *fit, int img, int *sizep)
 	int ret;
 
 	if (!fit_getprop_u32(fit, img, FIT_PROP_DATA_OFFSET, &offset)) {
-		data = fit->blob + ((fdt_totalsize(fit->blob) + 3) & ~3);
-		if (fit_getprop_u32(fit, img, FIT_PROP_DATA_SIZE, sizep)) {
+		int start;
+
+		if (fit_getprop_u32(fit, img, FIT_PROP_DATA_SIZE, &size)) {
 			*sizep = -FITE_MISSING_SIZE;
 			return NULL;
 		}
 
-		return data;
-	}
+		if (offset < 0) {
+			*sizep = -FITE_NEGATIVE_OFFSET;
+			return NULL;
+		}
+		start = (fdt_totalsize(fit->blob) + 3) & ~3;
+		if (start + offset + size > fit->size) {
+			*sizep = -FITE_DATA_OFFSET_RANGE;
+			return NULL;
+		}
 
-	data = fdt_getprop(fit->blob, img, FIT_PROP_DATA, &size);
-	if (!data) {
-		*sizep = -FITE_NOT_FOUND;
-		return NULL;
-	}
+		data = fit->blob + start + offset;
+	} else {
+		data = fdt_getprop(fit->blob, img, FIT_PROP_DATA, &size);
+		if (!data) {
+			*sizep = -FITE_NOT_FOUND;
+			return NULL;
+		}
 
-	ret = fit_check_hashes(fit, img, data, size);
-	if (ret) {
-		 *sizep = ret;
-		 return NULL;
+		ret = fit_check_hashes(fit, img, data, size);
+		if (ret) {
+			 *sizep = ret;
+			 return NULL;
+		}
 	}
 	*sizep = size;
 
