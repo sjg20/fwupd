@@ -73,6 +73,7 @@
  * @GEN_STORE_OFFSET: Generate a store-offset for the image
  * @GEN_BAD_DATA_SIZE: Generate a negative data-size property
  * @GEN_BAD_DATA_OFFSET: Generate a negative data-offset property
+ * @GEN_BAD_STORE_OFFSET: Generate a negative store-offset property
  */
 enum gen_t {
 	GEN_CFGS		= 1 << 0,
@@ -89,8 +90,9 @@ enum gen_t {
 	GEN_CRC32_BAD_VAL	= 1 << 11,
 	GEN_BAD_ALGO		= 1 << 12,
 	GEN_STORE_OFFSET	= 1 << 13,
-	GEN_BAD_DATA_SIZE	= 1 << 14,
-	GEN_BAD_DATA_OFFSET	= 1 << 15,
+	GEN_BAD_STORE_OFFSET	= 1 << 14,
+	GEN_BAD_DATA_SIZE	= 1 << 15,
+	GEN_BAD_DATA_OFFSET	= 1 << 16,
 };
 
 /* Size of the test FIT we use */
@@ -138,6 +140,8 @@ static int build_fit(char *buf, int size, int flags)
 
 			if (flags & GEN_STORE_OFFSET)
 				fdt_property_u32(buf, "store-offset", 0x1000);
+			if (flags & GEN_BAD_STORE_OFFSET)
+				fdt_property_u32(buf, "store-offset", -4);
 
 			if (flags & GEN_DATA)
 				fdt_property(buf, "data", "abc", 3);
@@ -521,12 +525,12 @@ static int test_crc32(void)
 }
 
 /* Check data with store-offset*/
-static int test_offset(void)
+static int test_store_offset(void)
 {
 	struct fit_info s_fit, *fit = &s_fit;
 	int cfg, img;
 
-	/* Missing 'algo' property gives an error when 'value' is provided */
+	/* Missing 'store-offset' property */
 	CALL(build_fit(fit_buf, FIT_SIZE,
 		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG));
 	CALL(fit_open(fit, fit_buf, FIT_SIZE));
@@ -536,10 +540,24 @@ static int test_offset(void)
 	CHECK(img > 0);
 
 	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
-	CHECKEQ(-FITE_NOT_FOUND, fit_img_offset(fit, img));
+	CHECKEQ(-FITE_NOT_FOUND, fit_img_store_offset(fit, img));
 	fit_close(fit);
 
-	/* Missing 'algo' property gives an error when 'value' is provided */
+	/* Negative 'store-offset' property */
+	CALL(build_fit(fit_buf, FIT_SIZE,
+		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG |
+		       GEN_BAD_STORE_OFFSET));
+	CALL(fit_open(fit, fit_buf, FIT_SIZE));
+
+	cfg = fit_first_cfg(fit);
+	img = fit_cfg_img(fit, cfg, "firmware", 0);
+	CHECK(img > 0);
+
+	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
+	CHECKEQ(-FITE_NEGATIVE_OFFSET, fit_img_store_offset(fit, img));
+	fit_close(fit);
+
+	/* Valid 'store-offset' property */
 	CALL(build_fit(fit_buf, FIT_SIZE,
 		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG |
 		       GEN_STORE_OFFSET));
@@ -550,7 +568,7 @@ static int test_offset(void)
 	CHECK(img > 0);
 
 	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
-	CHECKEQ(0x1000, fit_img_offset(fit, img));
+	CHECKEQ(0x1000, fit_img_store_offset(fit, img));
 	fit_close(fit);
 
 	return 0;
@@ -566,7 +584,7 @@ int fit_test(void)
 	CALL(test_data());
 	CALL(test_ext_data());
 	CALL(test_crc32());
-	CALL(test_offset());
+	CALL(test_store_offset());
 
 	return 0;
 }

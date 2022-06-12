@@ -244,7 +244,7 @@ static gboolean process_image(struct fit_info *fit, int img,
 	int size;
 	int ret;
 
-	ret = fit_img_offset(fit, img);
+	ret = fit_img_store_offset(fit, img);
 	if (ret <0 && ret != -FITE_NOT_FOUND) {
 		g_error("Image '%s' offset is invalid (%d)",
 			fit_img_name(fit, img), ret);

@@ -237,16 +237,31 @@ int fit_check_hash(struct fit_info *fit, int node, const char *data, int size);
 int fit_check_hashes(struct fit_info *fit, int img, const char *data, int size);
 
 /**
- * fit_img_offset() - Get the offset for an image
+ * fit_img_offset() - Get the store offset for an image
  *
  * The image can be placed at a particular offset in the firmware region. This
- * reads that offset
+ * reads that offset.
+ *
+ * @fit: FIT to check
+ * @img: Offset of image node
+ * @offsetp: Returns the store offset, if found
+ * Returns: offset, on success, -FITE_NOT_FOUND if there is no offset
+ */
+int fit_img_store_offset(struct fit_info *fit, int img);
+
+/**
+ * fit_img_skip_offset() - Get the skip offset for an image
+ *
+ * This allows an initial part of the image to be skipped when writing. This
+ * means that the first part of the image is ignored, with just the latter part
+ * being written. For example, if this is 0x200 then the first 512 bytes of the
+ * image are skipped and the bytes after that are written to the store offset.
  *
  * @fit: FIT to check
  * @img: Offset of image node
  * @offsetp: Returns the offset, if found
  * Returns: offset, on success, -FITE_NOT_FOUND if there is no offset
  */
-int fit_img_offset(struct fit_info *fit, int img);
+int fit_img_skip_offset(struct fit_info *fit, int img);
 
 #endif /* __FU_PLUGIN_VBE_FIT_H */

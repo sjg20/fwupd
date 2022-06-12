@@ -27,6 +27,7 @@
 #define FIT_PROP_DATA_SIZE	"data-size"
 #define FIT_PROP_STORE_OFFSET	"store-offset"
 #define FIT_PROP_VALUE		"value"
+#define FIT_PROP_SKIP_OFFSET	"skip-offset"
 
 static const char *const fit_err[FITE_COUNT] = {
 	[FITE_BAD_HEADER]	= "Bad device tree header",
@@ -280,12 +281,26 @@ const char *fit_img_data(struct fit_info *fit, int img, int *sizep)
 	return data;
 }
 
-int fit_img_offset(struct fit_info *fit, int img)
+int fit_img_store_offset(struct fit_info *fit, int img)
 {
 	int offset;
 	int ret;
 
 	ret = fit_getprop_u32(fit, img, FIT_PROP_STORE_OFFSET, &offset);
+	if (ret < 0)
+		return ret;
+	if (offset < 0)
+		return -FITE_NEGATIVE_OFFSET;
+
+	return offset;
+}
+
+int fit_img_skip_offset(struct fit_info *fit, int img)
+{
+	int offset;
+	int ret;
+
+	ret = fit_getprop_u32(fit, img, FIT_PROP_SKIP_OFFSET, &offset);
 	if (ret < 0)
 		return ret;
 	if (offset < 0)
