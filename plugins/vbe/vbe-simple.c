@@ -296,7 +296,7 @@ static gboolean process_image(struct fit_info *fit, int img,
 			    strerror(errno));
 		return FALSE;
 	}
-
+/*
 	ret = write(dev->fd, data, size);
 	if (ret < 0) {
 		g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_WRITE,
@@ -304,7 +304,7 @@ static gboolean process_image(struct fit_info *fit, int img,
 			    strerror(errno));
 		return FALSE;
 	}
-
+*/
 	return TRUE;
 }
 
