@@ -40,7 +40,7 @@
  * @storage: Storage device name (e.g. "mmc1")
  * @devname: Device name (e.g. /dev/mmcblk1)
  * @image_start: Start offset for firmware
- * @block_end: End offset for firmware
+ * @image_size: Size of firmware area
  * @fd: File descriptor, if the device is open
  */
 struct _FuVbeSimpleDevice {
@@ -169,8 +169,6 @@ static gboolean
 fu_vbe_simple_device_open(FuDevice *device, GError **error)
 {
 	struct _FuVbeSimpleDevice *dev = FU_VBE_SIMPLE_DEVICE(device);
-	long blksize;
-	int ret;
 
 	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "open");
 	if (DEBUG)
@@ -182,18 +180,6 @@ fu_vbe_simple_device_open(FuDevice *device, GError **error)
 			    "Cannot open file '%s' (%s)", dev->devname,
 			    strerror(errno));
 		return FALSE;
-	}
-
-	ret = ioctl(dev->fd, BLKGETSIZE, &blksize);
-	if (ret) {
-		if (errno != ENOTTY) {
-			g_info("No block size for '%s' (%s), using 0",
-			       dev->devname, strerror(errno));
-		}
-		blksize = 0;
-	} else {
-		g_info("Block size for '%s': %lx", dev->devname,
-		       (unsigned long)blksize);
 	}
 
 	return TRUE;
