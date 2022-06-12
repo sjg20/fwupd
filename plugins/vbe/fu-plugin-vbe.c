@@ -200,7 +200,6 @@ fu_plugin_vbe_startup(FuPlugin *plugin, GError **error)
 	/* Check if we have a kernel device tree */
 	bfname = g_build_filename(priv->vbe_dir, KERNEL_DT, NULL);
 	if (!g_file_get_contents(bfname, &buf, &len, error)) {
-		g_free(bfname);
 		g_warning("No kernel device tree '%s'", bfname);
 
 		/* Read in the system info */
