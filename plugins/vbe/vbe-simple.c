@@ -280,8 +280,9 @@ static gboolean process_image(struct fit_info *fit, int img,
 	}
 
 	seek_to = dev->image_start + offset;
-	g_info("Writing image '%s' to offset %x, seek %jx\n",
-	       fit_img_name(fit, img), offset, (uintmax_t)seek_to);
+	g_info("Writing image '%s' size %x to offset %x, seek %jx\n",
+	       fit_img_name(fit, img), (unsigned int)size, offset,
+	       (uintmax_t)seek_to);
 	data = g_bytes_new(buf, size);
 
 	/* notify UI */
