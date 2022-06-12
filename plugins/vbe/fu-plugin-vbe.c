@@ -198,12 +198,10 @@ fu_plugin_vbe_startup(FuPlugin *plugin, GError **error)
 	priv->vbe_dir = g_steal_pointer(&vbe_dir);
 
 	/* Check if we have a kernel device tree */
-	bfname = g_build_filename(priv->vbe_dir, KERNEL_DT, NULL);
-	if (!g_file_get_contents(bfname, &buf, &len, error)) {
-		g_warning("No kernel device tree '%s'", bfname);
+	if (!g_file_get_contents(KERNEL_DT, &buf, &len, error)) {
+		g_warning("No kernel device tree '%s'", KERNEL_DT);
 
 		/* Read in the system info */
-		g_free(bfname);
 		bfname = g_build_filename(priv->vbe_dir, SYSTEM_DT, NULL);
 		if (!g_file_get_contents(bfname, &buf, &len, error)) {
 			g_warning("Cannot find system DT '%s'", bfname);
