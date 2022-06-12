@@ -25,6 +25,7 @@
 #define FIT_PROP_ALGO		"algo"
 #define FIT_PROP_DATA_OFFSET	"data-offset"
 #define FIT_PROP_DATA_SIZE	"data-size"
+#define FIT_PROP_STORE_OFFSET	"store-offset"
 #define FIT_PROP_VALUE		"value"
 
 static const char *const fit_err[FITE_COUNT] = {
@@ -39,6 +40,7 @@ static const char *const fit_err[FITE_COUNT] = {
 	[FITE_UNKNOWN_ALGO]	= "Unknown algo name",
 	[FITE_INVALID_HASH_SIZE] = "Invalid hash value size",
 	[FITE_HASH_MISMATCH]	= "Calculated hash value does not match",
+	[FITE_NEGATIVE_OFFSET]	= "Image has negative offset",
 };
 
 static const char *const fit_algo[FIT_ALGO_COUNT] = {
@@ -258,4 +260,18 @@ const char *fit_img_data(struct fit_info *fit, int img, int *sizep)
 	*sizep = size;
 
 	return data;
+}
+
+int fit_img_offset(struct fit_info *fit, int img)
+{
+	int offset;
+	int ret;
+
+	ret = fit_getprop_u32(fit, img, FIT_PROP_STORE_OFFSET, &offset);
+	if (ret < 0)
+		return ret;
+	if (offset < 0)
+		return -FITE_NEGATIVE_OFFSET;
+
+	return offset;
 }

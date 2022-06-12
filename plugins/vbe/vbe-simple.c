@@ -169,6 +169,8 @@ static gboolean
 fu_vbe_simple_device_open(FuDevice *device, GError **error)
 {
 	struct _FuVbeSimpleDevice *dev = FU_VBE_SIMPLE_DEVICE(device);
+	long blksize;
+	int ret;
 
 	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "open");
 	if (DEBUG)
@@ -180,6 +182,18 @@ fu_vbe_simple_device_open(FuDevice *device, GError **error)
 			    "Cannot open file '%s' (%s)", dev->devname,
 			    strerror(errno));
 		return FALSE;
+	}
+
+	ret = ioctl(dev->fd, BLKGETSIZE, &blksize);
+	if (ret) {
+		if (errno != ENOTTY) {
+			g_info("No block size for '%s' (%s), using 0",
+			       dev->devname, strerror(errno));
+		}
+		blksize = 0;
+	} else {
+		g_info("Block size for '%s': %lx", dev->devname,
+		       (unsigned long)blksize);
 	}
 
 	return TRUE;
@@ -234,20 +248,67 @@ static int check_config_match(struct fit_info *fit, int cfg,
 }
 
 static gboolean process_image(struct fit_info *fit, int img,
+			      struct _FuVbeSimpleDevice *dev,
 			      FuProgress *progress, GError **error)
 {
 	g_autoptr(GBytes) data = NULL;
+	unsigned int offset = 0;
 	const char *buf;
+	off_t seek_to;
 	int size;
+	int ret;
 
-	g_info("Writing image '%s'\n", fit_img_name(fit, img));
+	ret = fit_img_offset(fit, img);
+	if (ret <0 && ret != -FITE_NOT_FOUND) {
+		g_error("Image '%s' offset is invalid (%d)",
+			fit_img_name(fit, img), ret);
+		return FALSE;
+	}
+
 	buf = fit_img_data(fit, img, &size);
+	if (!buf) {
+		g_error("Image '%s' data could not be read (%d)",
+			fit_img_name(fit, img), size);
+		return FALSE;
+	}
+
+	if (offset + size > dev->image_size) {
+		g_error("Image '%s' offset=%#x, size=%#x, image_size=%#jx",
+			fit_img_name(fit, img), (unsigned int)offset,
+			(unsigned int)size, (uintmax_t)dev->image_size);
+		return FALSE;
+	}
+
+	seek_to = dev->image_start + offset;
+	g_info("Writing image '%s' to offset %x, seek %jx\n",
+	       fit_img_name(fit, img), offset, (uintmax_t)seek_to);
 	data = g_bytes_new(buf, size);
+
+	/* notify UI */
+	fu_progress_set_status(progress, FWUPD_STATUS_DEVICE_WRITE);
+
+	ret = lseek(dev->fd, seek_to, SEEK_SET);
+	if (ret < 0) {
+		g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_WRITE,
+			    "Cannot seek file '%s' (%d) to %#jx (%s)",
+			    dev->devname, dev->fd, (uintmax_t)seek_to,
+			    strerror(errno));
+		return FALSE;
+	}
+
+	ret = write(dev->fd, data, size);
+	if (ret < 0) {
+		g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_WRITE,
+			    "Cannot write file '%s' (%s)", dev->devname,
+			    strerror(errno));
+		return FALSE;
+	}
 
 	return TRUE;
 }
 
 static gboolean process_config(struct fit_info *fit, int cfg,
+			       struct _FuVbeSimpleDevice *dev,
 			       FuProgress *progress, GError **error)
 {
 	int count;
@@ -267,7 +328,7 @@ static gboolean process_config(struct fit_info *fit, int cfg,
 		}
 		fu_progress_set_percentage_full(progress, i, count);
 
-		if (!process_image(fit, image, progress, error))
+		if (!process_image(fit, image, dev, progress, error))
 			return FALSE;
 	}
 	fu_progress_set_percentage_full(progress, i, count);
@@ -275,9 +336,9 @@ static gboolean process_config(struct fit_info *fit, int cfg,
 	return TRUE;
 }
 
-static gboolean process_fit(struct fit_info *fit, const char *method_compat,
-			    int method_compat_len, FuProgress *progress,
-			    GError **error)
+static gboolean process_fit(struct fit_info *fit,
+			    struct _FuVbeSimpleDevice *dev,
+			    FuProgress *progress, GError **error)
 {
 	int best_cfg = 0;
 	int best_prio = INT_MAX;
@@ -286,8 +347,8 @@ static gboolean process_fit(struct fit_info *fit, const char *method_compat,
 
 	for (cfg = fit_first_cfg(fit); cfg > 0;
 	     cfg_count++, cfg = fit_next_cfg(fit, cfg)) {
-		int prio = check_config_match(fit, cfg, method_compat,
-					      method_compat_len);
+		int prio = check_config_match(fit, cfg, dev->compat,
+					      dev->compat_len);
 		g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO,
 		      "config '%s': priority=%d",
 		      fit_cfg_name(fit, cfg), prio);
@@ -313,7 +374,7 @@ static gboolean process_fit(struct fit_info *fit, const char *method_compat,
 	      "Best configuration: '%s', priorty %d",
 	      fit_cfg_name(fit, best_cfg), best_prio);
 
-	if (!process_config(fit, best_cfg, progress, error))
+	if (!process_config(fit, best_cfg, dev, progress, error))
 		return FALSE;
 
 	return TRUE;
@@ -344,7 +405,7 @@ fu_vbe_simple_device_write_firmware(FuDevice *device, FuFirmware *firmware,
 		return FALSE;
 	}
 
-	if (!process_fit(&fit, dev->compat, dev->compat_len, progress, error))
+	if (!process_fit(&fit, dev, progress, error))
 		return FALSE;
 	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "write done");
 

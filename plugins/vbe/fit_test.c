@@ -70,6 +70,7 @@
  * @GEN_CRC32_BAD_SIZE: Generate a crc32 value with a bad size
  * @GEN_CRC32_BAD_VAL: Generate a bad crc32 value for the data
  * @GEN_BAD_ALGO: Generate an unknown algo property
+ * @GEN_STORE_OFFSET: Generate a store-offset for the image
  */
 enum gen_t {
 	GEN_CFGS		= 1 << 0,
@@ -85,6 +86,7 @@ enum gen_t {
 	GEN_CRC32_BAD_SIZE	= 1 << 10,
 	GEN_CRC32_BAD_VAL	= 1 << 11,
 	GEN_BAD_ALGO		= 1 << 12,
+	GEN_STORE_OFFSET	= 1 << 13,
 };
 
 /* Size of the test FIT we use */
@@ -127,6 +129,9 @@ static int build_fit(char *buf, int size, int flags)
 			fdt_property_string(buf, "compression", "none");
 			fdt_property_u32(buf, "load", 0x100);
 			fdt_property_u32(buf, "entry", 0x100);
+
+			if (flags & GEN_STORE_OFFSET)
+				fdt_property_u32(buf, "store-offset", 0x1000);
 
 			if (flags & GEN_DATA)
 				fdt_property(buf, "data", "abc", 3);
@@ -470,6 +475,42 @@ static int test_crc32(void)
 	return 0;
 }
 
+/* Check data with store-offset*/
+static int test_offset(void)
+{
+	struct fit_info s_fit, *fit = &s_fit;
+	int cfg, img;
+
+	/* Missing 'algo' property gives an error when 'value' is provided */
+	CALL(build_fit(fit_buf, FIT_SIZE,
+		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG));
+	CALL(fit_open(fit, fit_buf, FIT_SIZE));
+
+	cfg = fit_first_cfg(fit);
+	img = fit_cfg_img(fit, cfg, "firmware", 0);
+	CHECK(img > 0);
+
+	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
+	CHECKEQ(-FITE_NOT_FOUND, fit_img_offset(fit, img));
+	fit_close(fit);
+
+	/* Missing 'algo' property gives an error when 'value' is provided */
+	CALL(build_fit(fit_buf, FIT_SIZE,
+		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG |
+		       GEN_STORE_OFFSET));
+	CALL(fit_open(fit, fit_buf, FIT_SIZE));
+
+	cfg = fit_first_cfg(fit);
+	img = fit_cfg_img(fit, cfg, "firmware", 0);
+	CHECK(img > 0);
+
+	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
+	CHECKEQ(0x1000, fit_img_offset(fit, img));
+	fit_close(fit);
+
+	return 0;
+}
+
 int fit_test(void)
 {
 	g_info("Running tests\n");
@@ -480,6 +521,7 @@ int fit_test(void)
 	CALL(test_data());
 	CALL(test_ext_data());
 	CALL(test_crc32());
+	CALL(test_offset());
 
 	return 0;
 }

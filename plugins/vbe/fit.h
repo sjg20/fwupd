@@ -25,6 +25,7 @@
  * @FITE_INVALID_HASH_SIZE: The hash value is not the right size for the algo
  * @FITE_HASH_MISMATCH: Hash value calculated from data contents doesn't match
  *	its value in the 'value' property
+ * @FITE_NEGATIVE_OFFSET: Image offset is a negative value (must be positive)
  */
 enum fit_err_t {
 	FIT_ERR_OK = 0,
@@ -39,6 +40,7 @@ enum fit_err_t {
 	FITE_UNKNOWN_ALGO,
 	FITE_INVALID_HASH_SIZE,
 	FITE_HASH_MISMATCH,
+	FITE_NEGATIVE_OFFSET,
 
 	FITE_COUNT,
 };
@@ -188,8 +190,49 @@ const char *fit_img_name(struct fit_info *fit, int img);
  */
 const char *fit_img_data(struct fit_info *fit, int img, int *sizep);
 
+/**
+ * fit_check_hash() - Check that the hash matches given data
+ *
+ * @fit: FIT to check
+ * @node: Offset of hash node (e.g. subnode of image)
+ * @data: Data to check
+ * @size: Size of data to check
+ * Returns: 0 if OK, -FITE_MISSING_VALUE if the value is missing,
+ * -FITE_INVALID_HASH_SIZE if the hash value has an invalid size (e.g. must be
+ * 4 for crc32), -FITE_HASH_MISMATCH if the hash does not match,
+ * -FITE_MISSING_ALGO if there is no 'algo' property, -FITE_UNKNOWN_ALGO if the
+ * algorithm is unknown
+ */
 int fit_check_hash(struct fit_info *fit, int node, const char *data, int size);
 
+/**
+ * fit_check_hashes() - Check that an image's hashes match the given data
+ *
+ * This iterates through any hash subnodes (named 'hash...') in the image node
+ * If a hash node has no value, the node is ignored.
+ *
+ * @fit: FIT to check
+ * @img: Offset of image node
+ * @data: Data to check
+ * @size: Size of data to check
+ * Returns: 0 if OK, -FITE_INVALID_HASH_SIZE if the hash value has an invalid
+ * size (e.g. must be 4 for crc32), -FITE_HASH_MISMATCH if the hash does not
+ * match, -FITE_MISSING_ALGO if there is no 'algo' property, -FITE_UNKNOWN_ALGO
+ * if the algorithm is unknown
+ */
 int fit_check_hashes(struct fit_info *fit, int img, const char *data, int size);
+
+/**
+ * fit_img_offset() - Get the offset for an image
+ *
+ * The image can be placed at a particular offset in the firmware region. This
+ * reads that offset
+ *
+ * @fit: FIT to check
+ * @img: Offset of image node
+ * @offsetp: Returns the offset, if found
+ * Returns: offset, on success, -FITE_NOT_FOUND if there is no offset
+ */
+int fit_img_offset(struct fit_info *fit, int img);
 
 #endif /* __FU_PLUGIN_VBE_FIT_H */
