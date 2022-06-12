@@ -40,7 +40,8 @@ static const char *const fit_err[FITE_COUNT] = {
 	[FITE_UNKNOWN_ALGO]	= "Unknown algo name",
 	[FITE_INVALID_HASH_SIZE] = "Invalid hash value size",
 	[FITE_HASH_MISMATCH]	= "Calculated hash value does not match",
-	[FITE_NEGATIVE_OFFSET]	= "Image has negative offset",
+	[FITE_NEGATIVE_OFFSET]	= "Image has negative store-offset or data-offset",
+	[FITE_DATA_OFFSET_RANGE] = "Image data-offset is out of range of data",
 };
 
 static const char *const fit_algo[FIT_ALGO_COUNT] = {
@@ -55,6 +56,7 @@ int fit_open(struct fit_info *fit, const void *buf, size_t size)
 	if (ret)
 		return -FITE_BAD_HEADER;
 	fit->blob = buf;
+	fit->size = size;
 
 	return false;
 }

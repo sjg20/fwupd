@@ -25,7 +25,11 @@
  * @FITE_INVALID_HASH_SIZE: The hash value is not the right size for the algo
  * @FITE_HASH_MISMATCH: Hash value calculated from data contents doesn't match
  *	its value in the 'value' property
- * @FITE_NEGATIVE_OFFSET: Image offset is a negative value (must be positive)
+ * @FITE_NEGATIVE_OFFSET: Image store-offset or data-offset is a negative value
+ *	(must be positive)
+ * @FITE_DATA_OFFSET_RANGE: Image data-offset is out of range of the available
+ *	data. This means that it extends past the end of the external data
+ *	attached to the end of the FIT
  */
 enum fit_err_t {
 	FIT_ERR_OK = 0,
@@ -41,6 +45,7 @@ enum fit_err_t {
 	FITE_INVALID_HASH_SIZE,
 	FITE_HASH_MISMATCH,
 	FITE_NEGATIVE_OFFSET,
+	FITE_DATA_OFFSET_RANGE,
 
 	FITE_COUNT,
 };
@@ -56,8 +61,15 @@ enum fit_algo_t {
 	FIT_ALGO_COUNT
 };
 
+/**
+ * struct fit_info - Information about a Flat Image Tree being processed
+ *
+ * @blob: Pointer to FIT data (format is device tree binary / dtb)
+ * @size: Size of FIT data in bytes
+ */
 struct fit_info {
 	const char *blob;
+	int size;
 };
 
 /**
