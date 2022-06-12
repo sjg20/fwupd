@@ -34,9 +34,9 @@
  * @vbe_method: Name of method ("simple")
  * @fdt: Device tree containing the info
  * @node: Node containing the info for this device
- * @compat: Compatible property for this update method. This is a device tree
- * string list, i.e. a contiguous list of NULL-terminated strings
- * #compat_len: Length of @compat in bytes
+ * @compat: Compatible property for this model. This is a device tree string
+ * list, i.e. a contiguous list of NULL-terminated strings
+ * @compat_len: Length of @compat in bytes
  * @storage: Storage device name (e.g. "mmc1")
  * @devname: Device name (e.g. /dev/mmcblk1)
  * @area_start: Start offset of area for firmware
@@ -116,8 +116,7 @@ fu_vbe_simple_device_probe(FuDevice *device, GError **error)
 	int devnum, len;
 
 	g_info("Probing device %s", dev->vbe_method);
-	dev->compat = fdt_getprop(dev->fdt, dev->node, "compatible",
-				  &dev->compat_len);
+	dev->compat = fdt_getprop(dev->fdt, 0, "compatible", &dev->compat_len);
 	dev->storage = fdt_getprop(dev->fdt, dev->node, "storage", &len);
 	if (!dev->storage) {
 		g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_NOT_SUPPORTED,
@@ -189,10 +188,6 @@ fu_vbe_simple_device_open(FuDevice *device, GError **error)
 {
 	struct _FuVbeSimpleDevice *dev = FU_VBE_SIMPLE_DEVICE(device);
 
-	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "open");
-	if (DEBUG)
-		return TRUE;
-
 	dev->fd = open(dev->devname, O_RDWR);
 	if (dev->fd == -1) {
 		g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_NOT_SUPPORTED,
@@ -209,22 +204,8 @@ fu_vbe_simple_device_close(FuDevice *device, GError **error)
 {
 	struct _FuVbeSimpleDevice *dev = FU_VBE_SIMPLE_DEVICE(device);
 
-	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "close");
-	if (DEBUG)
-		return TRUE;
 	close(dev->fd);
 	dev->fd = -1;
-	return TRUE;
-}
-
-static gboolean
-fu_vbe_simple_device_prepare(FuDevice *device,
-			   FuProgress *progress,
-			   FwupdInstallFlags flags,
-			   GError **error)
-{
-	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "prepare");
-
 	return TRUE;
 }
 
@@ -244,7 +225,15 @@ static int check_config_match(struct fit_info *fit, int cfg,
 	int prio;
 
 	for (prio = 0; p < end; prio++, p += strlen(p) + 1) {
-		int ret = fdt_node_check_compatible(fit->blob, cfg, p);
+		const char *compat, *q, *qend;
+		int ret, len;
+
+		compat = fdt_getprop(fit->blob, cfg, "compatible", &len);
+		g_info("compat:");
+		for (q = compat, qend = compat + len; q < qend;
+		     q += strlen(q) + 1)
+		     g_info("   %s", q);
+		ret = fdt_node_check_compatible(fit->blob, cfg, p);
 		if (!ret || ret == -FDT_ERR_NOTFOUND)
 			return prio;
 	}
@@ -329,8 +318,6 @@ static gboolean process_config(struct fit_info *fit, int cfg,
 
 	count = fit_cfg_img_count(fit, cfg, "firmware");
 
-	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "write");
-
 	for (i = 0; i < count; i++) {
 		int image = fit_cfg_img(fit, cfg, "firmware", i);
 
@@ -353,10 +340,20 @@ static gboolean process_fit(struct fit_info *fit,
 			    struct _FuVbeSimpleDevice *dev,
 			    FuProgress *progress, GError **error)
 {
+	const char *p, *end;
 	int best_cfg = 0;
 	int best_prio = INT_MAX;
 	int cfg_count = 0;
 	int cfg;
+
+	g_info("model: ");
+	if (!dev->compat) {
+		g_info("   (none)");
+	} else {
+		for (p = dev->compat, end = dev->compat + dev->compat_len; p < end;
+		     p += strlen(p) + 1)
+		     g_info("   %s", p);
+	}
 
 	for (cfg = fit_first_cfg(fit); cfg > 0;
 	     cfg_count++, cfg = fit_next_cfg(fit, cfg)) {
@@ -371,7 +368,7 @@ static gboolean process_fit(struct fit_info *fit,
 		}
 	}
 
-	g_info("cfg_count=%d, best_cfg=%d\n", cfg_count, best_cfg);
+	g_info("cfg_count=%d, best_cfg=%d", cfg_count, best_cfg);
 	if (!cfg_count) {
 		g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_READ,
 			    "FIT has no configurations");
@@ -627,7 +624,6 @@ fu_vbe_simple_device_class_init(FuVbeSimpleDeviceClass *klass)
 	dev->probe = fu_vbe_simple_device_probe;
 	dev->open = fu_vbe_simple_device_open;
 	dev->close = fu_vbe_simple_device_close;
-	dev->prepare = fu_vbe_simple_device_prepare;
 	dev->write_firmware = fu_vbe_simple_device_write_firmware;
 	dev->dump_firmware = fu_vbe_simple_device_upload;
 	dev->read_firmware = fu_vbe_simple_device_read_firmware;
