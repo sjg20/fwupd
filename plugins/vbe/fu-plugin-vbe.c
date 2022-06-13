@@ -12,6 +12,7 @@
 #include <fwupdplugin.h>
 #include <libfdt.h>
 #include "fu-plugin-vbe.h"
+#include "vbe-simple.h"
 #include "fit_test.h"
 
 /* Kernel device tree, used for system information */
@@ -50,6 +51,8 @@ struct VbeDriver {
 
 /** List of available VBE drivers */
 const struct VbeDriver driver_list[] = {
+	{ "simple", "U-Boot", "VBE:U-Boot", "0.0.1", fu_vbe_simple_device_new,
+		"bb3b05a8-ebef-11ec-be98-d3a15278be95" },
 	{ NULL },
 };
 
