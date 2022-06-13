@@ -76,6 +76,7 @@
  * @GEN_BAD_STORE_OFFSET: Generate a negative store-offset property
  * @GEN_SKIP_OFFSET: Generate a skip-offset property
  * @GEN_BAD_SKIP_OFFSET: Generate a bad negative skip-offset property
+ * @GEN_VERSION: Generate a version for the config
  */
 enum gen_t {
 	GEN_CFGS		= 1 << 0,
@@ -97,6 +98,7 @@ enum gen_t {
 	GEN_BAD_DATA_OFFSET	= 1 << 16,
 	GEN_SKIP_OFFSET		= 1 << 17,
 	GEN_BAD_SKIP_OFFSET	= 1 << 18,
+	GEN_VERSION		= 1 << 19,
 };
 
 /* Size of the test FIT we use */
@@ -203,6 +205,8 @@ static int build_fit(char *buf, int size, int flags)
 			fdt_property_string(buf, "firmware", "firmware-1");
 			if (flags & GEN_COMPAT)
 				fdt_property_string(buf, "compatible", "mary");
+			if (flags & GEN_VERSION)
+				fdt_property_string(buf, "version", "1.2.3");
 			fdt_end_node(buf);
 		}
 
@@ -582,6 +586,31 @@ static int test_store_offset(void)
 	return 0;
 }
 
+/* Check getting config version */
+static int test_version(void)
+{
+	struct fit_info s_fit, *fit = &s_fit;
+	const char *version;
+	int cfg;
+
+	/* Missing 'version' property */
+	CALL(build_fit(fit_buf, FIT_SIZE, GEN_CFGS | GEN_CFG));
+	CALL(fit_open(fit, fit_buf, FIT_SIZE));
+
+	cfg = fit_first_cfg(fit);
+	version = fit_cfg_version(fit, cfg);
+	CHECKEQ_NULL(version);
+
+	/* With version */
+	CALL(build_fit(fit_buf, FIT_SIZE, GEN_CFGS | GEN_CFG | GEN_VERSION));
+	CALL(fit_open(fit, fit_buf, FIT_SIZE));
+
+	cfg = fit_first_cfg(fit);
+	version = fit_cfg_version(fit, cfg);
+	CHECKEQ_STR("1.2.3", version);
+
+	return 0;
+}
 int fit_test(void)
 {
 	g_info("Running tests\n");
@@ -593,6 +622,7 @@ int fit_test(void)
 	CALL(test_ext_data());
 	CALL(test_crc32());
 	CALL(test_store_offset());
+	CALL(test_version());
 
 	return 0;
 }

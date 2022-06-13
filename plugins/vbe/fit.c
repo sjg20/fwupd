@@ -28,6 +28,7 @@
 #define FIT_PROP_STORE_OFFSET	"store-offset"
 #define FIT_PROP_VALUE		"value"
 #define FIT_PROP_SKIP_OFFSET	"skip-offset"
+#define FIT_VERSION		"version"
 
 static const char *const fit_err[FITE_COUNT] = {
 	[FITE_BAD_HEADER]	= "Bad device tree header",
@@ -156,6 +157,11 @@ int fit_cfg_img(struct fit_info *fit, int cfg, const char *prop_name, int index)
 		return -FITE_MISSING_IMAGE;
 
 	return image;
+}
+
+const char *fit_cfg_version(struct fit_info *fit, int cfg)
+{
+	return fdt_getprop(fit->blob, cfg, FIT_VERSION, NULL);
 }
 
 const char *fit_img_name(struct fit_info *fit, int img)

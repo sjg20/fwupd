@@ -28,6 +28,19 @@
 #define DEBUG 0
 
 /**
+ * struct vbe_simple_state - current state of this VBE method
+ *
+ *
+ */
+struct vbe_simple_state {
+	struct last_update {
+		unsigned long finish_time;
+		char *cur_version;
+		char *status;
+	} last;
+};
+
+/**
  * struct _FuVbeSimpleDevice - Information for the 'simple' VBE device
  *
  * @parent_instance: FuDevice parent device
@@ -47,6 +60,7 @@
  * 512 bytes of the image (which must be present in the image) are skipped and
  * the bytes after that are written to the store offset.
  * @fd: File descriptor, if the device is open
+ * @vbe_fname: Filename of the VBE state file
  */
 struct _FuVbeSimpleDevice {
 	FuDevice parent_instance;
@@ -61,6 +75,8 @@ struct _FuVbeSimpleDevice {
 	off_t area_size;
 	int skip_offset;
 	int fd;
+	char *vbe_fname;
+	struct vbe_simple_state state;
 };
 
 G_DEFINE_TYPE(FuVbeSimpleDevice, fu_vbe_simple_device, FU_TYPE_DEVICE)
@@ -187,6 +203,9 @@ static gboolean
 fu_vbe_simple_device_open(FuDevice *device, GError **error)
 {
 	struct _FuVbeSimpleDevice *dev = FU_VBE_SIMPLE_DEVICE(device);
+	struct vbe_simple_state *state = &dev->state;
+	char *buf;
+	gsize len;
 
 	dev->fd = open(dev->devname, O_RDWR);
 	if (dev->fd == -1) {
@@ -196,6 +215,21 @@ fu_vbe_simple_device_open(FuDevice *device, GError **error)
 		return FALSE;
 	}
 
+	if (g_file_get_contents(dev->vbe_fname, &buf, &len, NULL)) {
+		struct last_update *last = &state->last;
+		int node;
+
+		node = fdt_subnode_offset(buf, 0, "last-update");
+		last->finish_time = fdt_get_u32(buf, node, "finish-time");
+		last->cur_version = g_strdup(fdt_getprop(buf, node,
+							 "cur-version", NULL));
+		last->status = g_strdup(fdt_getprop(buf, node, "status", NULL));
+		g_free(buf);
+	} else {
+		g_warning("No state file '%s' - will create", dev->vbe_fname);
+		memset(state, '\0', sizeof(*state));
+	}
+
 	return TRUE;
 }
 
@@ -203,9 +237,40 @@ static gboolean
 fu_vbe_simple_device_close(FuDevice *device, GError **error)
 {
 	struct _FuVbeSimpleDevice *dev = FU_VBE_SIMPLE_DEVICE(device);
+	struct vbe_simple_state *state = &dev->state;
+	struct last_update *last = &state->last;
+	const int size = 1024;
+	char *buf;
 
 	close(dev->fd);
 	dev->fd = -1;
+
+	buf = g_malloc(size);
+	fdt_create(buf, size);
+	fdt_finish_reservemap(buf);
+
+	fdt_begin_node(buf, "");
+	fdt_begin_node(buf, "last-update");
+	fdt_property_u32(buf, "finish-time", last->finish_time);
+	if (last->cur_version)
+		fdt_property_string(buf, "cur-version", last->cur_version);
+	if (last->status)
+		fdt_property_string(buf, "status", last->status);
+	fdt_end_node(buf);
+	fdt_finish(buf);
+
+	if (fdt_totalsize(buf) > (unsigned)size) {
+		g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_BROKEN_SYSTEM,
+			    "VBE state is too large (%#x with limit of %#x)",
+			    fdt_totalsize(buf), (unsigned)size);
+		return FALSE;
+	}
+
+	if (!g_file_set_contents(dev->vbe_fname, buf, size, error))
+		return FALSE;
+
+	g_free(last->cur_version);
+	g_free(last->status);
 	return TRUE;
 }
 
@@ -230,9 +295,13 @@ static int check_config_match(struct fit_info *fit, int cfg,
 
 		compat = fdt_getprop(fit->blob, cfg, "compatible", &len);
 		g_info("compat:");
-		for (q = compat, qend = compat + len; q < qend;
-		     q += strlen(q) + 1)
-		     g_info("   %s", q);
+		if (!compat) {
+			g_info("   (none)");
+		} else {
+			for (q = compat, qend = compat + len; q < qend;
+			     q += strlen(q) + 1)
+				g_info("   %s", q);
+		}
 		ret = fdt_node_check_compatible(fit->blob, cfg, p);
 		if (!ret || ret == -FDT_ERR_NOTFOUND)
 			return prio;
@@ -255,29 +324,33 @@ static gboolean process_image(struct fit_info *fit, int img,
 	if (ret >= 0) {
 		store_offset = ret;
 	} else if (ret != -FITE_NOT_FOUND) {
-		g_error("Image '%s' store offset is invalid (%d)",
-			fit_img_name(fit, img), ret);
+		g_set_error(error,  FWUPD_ERROR, FWUPD_ERROR_WRITE,
+			    "Image '%s' store offset is invalid (%d)",
+			    fit_img_name(fit, img), ret);
 		return FALSE;
 	}
 
 	buf = fit_img_data(fit, img, &size);
 	if (!buf) {
-		g_error("Image '%s' data could not be read (%d)",
-			fit_img_name(fit, img), size);
+		g_set_error(error,  FWUPD_ERROR, FWUPD_ERROR_WRITE,
+			    "Image '%s' data could not be read (%d)",
+			    fit_img_name(fit, img), size);
 		return FALSE;
 	}
 
 	if (store_offset + size > dev->area_size) {
-		g_error("Image '%s' store_offset=%#x, size=%#x, area_size=%#jx",
-			fit_img_name(fit, img), (unsigned int)store_offset,
-			(unsigned int)size, (uintmax_t)dev->area_size);
+		g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_WRITE,
+			    "Image '%s' store_offset=%#x, size=%#x, area_size=%#jx",
+			    fit_img_name(fit, img), (unsigned int)store_offset,
+			    (unsigned int)size, (uintmax_t)dev->area_size);
 		return FALSE;
 	}
 
 	if (dev->skip_offset >= size) {
-		g_error("Image '%s' skip_offset=%#x, size=%#x, area_size=%#jx",
-			fit_img_name(fit, img), (unsigned int)store_offset,
-			(unsigned int)size, (uintmax_t)dev->area_size);
+		g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_WRITE,
+			    "Image '%s' skip_offset=%#x, size=%#x, area_size=%#jx",
+			    fit_img_name(fit, img), (unsigned int)store_offset,
+			    (unsigned int)size, (uintmax_t)dev->area_size);
 		return FALSE;
 	}
 
@@ -340,10 +413,11 @@ static gboolean process_fit(struct fit_info *fit,
 			    struct _FuVbeSimpleDevice *dev,
 			    FuProgress *progress, GError **error)
 {
-	const char *p, *end;
-	int best_cfg = 0;
 	int best_prio = INT_MAX;
+	const char *p, *end;
+	const char *version;
 	int cfg_count = 0;
+	int best_cfg = 0;
 	int cfg;
 
 	g_info("model: ");
@@ -380,12 +454,16 @@ static gboolean process_fit(struct fit_info *fit,
 			    "No matching configuration");
 		return FALSE;
 	}
+	version = fit_cfg_version(fit, best_cfg);
 	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO,
-	      "Best configuration: '%s', priorty %d",
-	      fit_cfg_name(fit, best_cfg), best_prio);
+	      "Best configuration: '%s', priorty %d, version %s",
+	      fit_cfg_name(fit, best_cfg), best_prio, version);
 
 	if (!process_config(fit, best_cfg, dev, progress, error))
 		return FALSE;
+
+	g_free(dev->state.last.cur_version);
+	dev->state.last.cur_version = g_strdup(version);
 
 	return TRUE;
 }
@@ -487,6 +565,9 @@ fu_vbe_simple_device_upload(FuDevice *device, FuProgress *progress, GError **err
 static void
 fu_vbe_simple_device_init(FuVbeSimpleDevice *self)
 {
+	g_autofree gchar *state_dir = NULL;
+	g_autofree gchar *vbe_fname = NULL;
+
 	fu_device_add_flag(FU_DEVICE(self), FWUPD_DEVICE_FLAG_INTERNAL |
 		FWUPD_DEVICE_FLAG_UPDATABLE | FWUPD_DEVICE_FLAG_NEEDS_REBOOT |
 		FWUPD_DEVICE_FLAG_CAN_VERIFY |
@@ -498,6 +579,10 @@ fu_vbe_simple_device_init(FuVbeSimpleDevice *self)
 	fu_device_set_physical_id(FU_DEVICE(self), "vbe");
 	fu_device_set_version_format(FU_DEVICE(self), FWUPD_VERSION_FORMAT_PAIR);
 	fu_device_add_icon(FU_DEVICE(self), "computer");
+
+	state_dir = fu_common_get_path(FU_PATH_KIND_LOCALSTATEDIR_PKG);
+	vbe_fname = g_build_filename(state_dir, "vbe", "simple.dtb", NULL);
+	self->vbe_fname = g_steal_pointer(&vbe_fname);
 }
 
 FuDevice *

@@ -180,6 +180,15 @@ int fit_cfg_img(struct fit_info *fit, int cfg, const char *prop_name,
 		  int index);
 
 /**
+ * fit_cfg_version() - Get the version of a configuration
+ *
+ * @fit: FIT to check
+ * @cfg: Offset of configuration node to check
+ * Returns: configuration version, or NULL if none
+ */
+const char *fit_cfg_version(struct fit_info *fit, int cfg);
+
+/**
  * fit_img_name() - Get the name of an image
  *
  * @fit: FIT to check

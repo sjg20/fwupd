@@ -14,6 +14,8 @@
 				area-start = <0x100000>;
 				area-size = <0x100000>;
 				skip-offset = <0x8000>;
+				part-uuid = "62db0ccf-03";
+				part-id = "3";
 			};
 		};
 	};
