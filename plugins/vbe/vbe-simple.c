@@ -413,7 +413,9 @@ static gboolean process_fit(struct fit_info *fit,
 			    struct _FuVbeSimpleDevice *dev,
 			    FuProgress *progress, GError **error)
 {
+	struct last_update *last = &dev->state.last;
 	int best_prio = INT_MAX;
+	const char *cfg_name;
 	const char *p, *end;
 	const char *version;
 	int cfg_count = 0;
@@ -454,16 +456,26 @@ static gboolean process_fit(struct fit_info *fit,
 			    "No matching configuration");
 		return FALSE;
 	}
+	cfg_name = fit_cfg_name(fit, best_cfg);
 	version = fit_cfg_version(fit, best_cfg);
+	if (!version) {
+		g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_READ,
+			    "Configuration '%s' has no version", cfg_name);
+		return FALSE;
+	}
+
 	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO,
-	      "Best configuration: '%s', priorty %d, version %s",
-	      fit_cfg_name(fit, best_cfg), best_prio, version);
+	      "Best configuration: '%s', priorty %d, version %s", cfg_name,
+	      best_prio, version);
 
 	if (!process_config(fit, best_cfg, dev, progress, error))
 		return FALSE;
 
-	g_free(dev->state.last.cur_version);
-	dev->state.last.cur_version = g_strdup(version);
+	g_free(last->cur_version);
+	g_free(last->status);
+	last->finish_time = time(NULL);
+	last->cur_version = g_strdup(version);
+	last->status = g_strdup("completed");
 
 	return TRUE;
 }
