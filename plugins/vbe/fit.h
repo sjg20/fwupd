@@ -86,7 +86,8 @@ struct fit_info {
  * @size: Size of the buffer
  * Returns: 0 if OK, -ve fit_err_t on error
  */
-int fit_open(struct fit_info *fit, const void *buf, size_t size);
+int
+fit_open(struct fit_info *fit, const void *buf, size_t size);
 
 /**
  * fit_close() - Shut down a FIT after use
@@ -95,7 +96,8 @@ int fit_open(struct fit_info *fit, const void *buf, size_t size);
  *
  * @fit: FIT to shut down
  */
-void fit_close(struct fit_info *fit);
+void
+fit_close(struct fit_info *fit);
 
 /**
  * fit_strerror() - Look up a FIT error number
@@ -106,7 +108,8 @@ void fit_close(struct fit_info *fit);
  * @err: Error number (-ve value)
  * Returns: string corresponding to that error
  */
-const char *fit_strerror(int err);
+const char *
+fit_strerror(int err);
 
 /**
  * fit_first_cfg() - Find the first configuration in the FIT
@@ -114,7 +117,8 @@ const char *fit_strerror(int err);
  * @fit: FIT to check
  * Returns: offset of first configuration, or -EFIT_NOT_FOUND if not found
  */
-int fit_first_cfg(struct fit_info *fit);
+int
+fit_first_cfg(struct fit_info *fit);
 
 /**
  * fit_next_cfg() - Find the next configuration in the FIT
@@ -123,7 +127,8 @@ int fit_first_cfg(struct fit_info *fit);
  * @prev_cfg: Offset of the previous configuration
  * Returns: offset of next configuration, or -EFIT_NOT_FOUND if not found
  */
-int fit_next_cfg(struct fit_info *fit, int preb_cfg);
+int
+fit_next_cfg(struct fit_info *fit, int preb_cfg);
 
 /**
  * fit_cfg_name() - Get the name of a configuration
@@ -132,7 +137,8 @@ int fit_next_cfg(struct fit_info *fit, int preb_cfg);
  * @cfg: Offset of configuration node to check
  * @return name of configuration, or NULL if @cfg is invalid
  */
-const char *fit_cfg_name(struct fit_info *fit, int cfg);
+const char *
+fit_cfg_name(struct fit_info *fit, int cfg);
 
 /**
  * fit_cfg_compat_item() - Get the name of one of a configs's compat strings
@@ -145,7 +151,8 @@ const char *fit_cfg_name(struct fit_info *fit, int cfg);
  * @index: Index of compatible string (0 for first, 1 for next...)
  * Returns: Configuration's compatible string with that index, or NULL if none
  */
-const char *fit_cfg_compat_item(struct fit_info *fit, int cfg, int index);
+const char *
+fit_cfg_compat_item(struct fit_info *fit, int cfg, int index);
 
 /**
  * fit_cfg_image_count() - Get the number of images in a configuration
@@ -163,7 +170,8 @@ const char *fit_cfg_compat_item(struct fit_info *fit, int cfg, int index);
  * Returns: Number of images in the configuration, or -ve if the offset is
  * invalid or the proprerty is not found
  */
-int fit_cfg_img_count(struct fit_info *fit, int cfg, const char *prop_name);
+int
+fit_cfg_img_count(struct fit_info *fit, int cfg, const char *prop_name);
 
 /**
  * fit_cfg_image() - Get the offset of an image from a configuration
@@ -176,8 +184,8 @@ int fit_cfg_img_count(struct fit_info *fit, int cfg, const char *prop_name);
  * @index: Index of string to use (0=first)
  * Returns: offset of image node, or -ve on error
  */
-int fit_cfg_img(struct fit_info *fit, int cfg, const char *prop_name,
-		  int index);
+int
+fit_cfg_img(struct fit_info *fit, int cfg, const char *prop_name, int index);
 
 /**
  * fit_cfg_version() - Get the version of a configuration
@@ -186,7 +194,8 @@ int fit_cfg_img(struct fit_info *fit, int cfg, const char *prop_name,
  * @cfg: Offset of configuration node to check
  * Returns: configuration version, or NULL if none
  */
-const char *fit_cfg_version(struct fit_info *fit, int cfg);
+const char *
+fit_cfg_version(struct fit_info *fit, int cfg);
 
 /**
  * fit_img_name() - Get the name of an image
@@ -195,7 +204,8 @@ const char *fit_cfg_version(struct fit_info *fit, int cfg);
  * @img: Offset of image node
  * Returns: name of the image (node name), or NULL if @offset is invalid
  */
-const char *fit_img_name(struct fit_info *fit, int img);
+const char *
+fit_img_name(struct fit_info *fit, int img);
 
 /**
  * fit_img_data() - Get the data from an image node
@@ -212,7 +222,8 @@ const char *fit_img_name(struct fit_info *fit, int img);
  * this returns the error code
  * Returns: Pointer to image or NULL if not found
  */
-const char *fit_img_data(struct fit_info *fit, int img, int *sizep);
+const char *
+fit_img_data(struct fit_info *fit, int img, int *sizep);
 
 /**
  * fit_check_hash() - Check that the hash matches given data
@@ -227,7 +238,8 @@ const char *fit_img_data(struct fit_info *fit, int img, int *sizep);
  * -FITE_MISSING_ALGO if there is no 'algo' property, -FITE_UNKNOWN_ALGO if the
  * algorithm is unknown
  */
-int fit_check_hash(struct fit_info *fit, int node, const char *data, int size);
+int
+fit_check_hash(struct fit_info *fit, int node, const char *data, int size);
 
 /**
  * fit_check_hashes() - Check that an image's hashes match the given data
@@ -244,7 +256,8 @@ int fit_check_hash(struct fit_info *fit, int node, const char *data, int size);
  * match, -FITE_MISSING_ALGO if there is no 'algo' property, -FITE_UNKNOWN_ALGO
  * if the algorithm is unknown
  */
-int fit_check_hashes(struct fit_info *fit, int img, const char *data, int size);
+int
+fit_check_hashes(struct fit_info *fit, int img, const char *data, int size);
 
 /**
  * fit_img_offset() - Get the store offset for an image
@@ -257,7 +270,8 @@ int fit_check_hashes(struct fit_info *fit, int img, const char *data, int size);
  * Returns: store offset, if found
  * Returns: offset, on success, -FITE_NOT_FOUND if there is no offset
  */
-int fit_img_store_offset(struct fit_info *fit, int img);
+int
+fit_img_store_offset(struct fit_info *fit, int img);
 
 /**
  * fit_img_skip_offset() - Get the skip offset for an image
@@ -273,6 +287,7 @@ int fit_img_store_offset(struct fit_info *fit, int img);
  * Returns: offset, if found
  * Returns: offset, on success, -FITE_NOT_FOUND if there is no offset
  */
-int fit_img_skip_offset(struct fit_info *fit, int img);
+int
+fit_img_skip_offset(struct fit_info *fit, int img);
 
 #endif /* __FU_PLUGIN_VBE_FIT_H */

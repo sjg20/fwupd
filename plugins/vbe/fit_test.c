@@ -10,48 +10,69 @@
 
 #include "config.h"
 
-#include <stdio.h>
 #include <libfdt.h>
-
-#include "fu-dfu-common.h"
+#include <stdio.h>
 
 #include "fit.h"
 #include "fit_test.h"
+#include "fu-dfu-common.h"
 
 /* Some helper macros for checking test conditions */
-#define CALL(x)		{ \
-	int iret; \
-	iret = (x); if (iret) { \
-		fprintf(stderr, "line %d: %s: %d\n", __LINE__, #x, iret); \
-		return iret; \
-	}}
-#define CHECK(x)	{ \
-	int iret; \
-	iret = (x); if (!iret) { \
-	fprintf(stderr, "line %d: %s: %d\n", __LINE__, #x, iret); \
-	return 1; \
-	}}
-#define CHECKEQ(y, x)	{ \
-	int iret; \
-	iret = (x); if (y != iret) { \
-	fprintf(stderr, "line %d: %s: expect %d, got %d\n", __LINE__, \
-		#x, y, iret); \
-	return 1; \
-	}}
-#define CHECKEQ_STR(y, x)	{ \
-	const char *sret; \
-	sret = (x); if (!sret || strcmp(y, sret)) { \
-	fprintf(stderr, "line %d: %s: expect %s, got %s\n", __LINE__, \
-		#x, y, sret ? sret : "(null)"); \
-	return 1; \
-	}}
-#define CHECKEQ_NULL(x)		{ \
-	const void *pret; \
-	pret = (x); if (pret) { \
-	fprintf(stderr, "line %d: %s: expect null, got %p\n", __LINE__, \
-		#x, pret); \
-	return 1; \
-	}}
+#define CALL(x)                                                                                    \
+	{                                                                                          \
+		int iret;                                                                          \
+		iret = (x);                                                                        \
+		if (iret) {                                                                        \
+			fprintf(stderr, "line %d: %s: %d\n", __LINE__, #x, iret);                  \
+			return iret;                                                               \
+		}                                                                                  \
+	}
+#define CHECK(x)                                                                                   \
+	{                                                                                          \
+		int iret;                                                                          \
+		iret = (x);                                                                        \
+		if (!iret) {                                                                       \
+			fprintf(stderr, "line %d: %s: %d\n", __LINE__, #x, iret);                  \
+			return 1;                                                                  \
+		}                                                                                  \
+	}
+#define CHECKEQ(y, x)                                                                              \
+	{                                                                                          \
+		int iret;                                                                          \
+		iret = (x);                                                                        \
+		if (y != iret) {                                                                   \
+			fprintf(stderr,                                                            \
+				"line %d: %s: expect %d, got %d\n",                                \
+				__LINE__,                                                          \
+				#x,                                                                \
+				y,                                                                 \
+				iret);                                                             \
+			return 1;                                                                  \
+		}                                                                                  \
+	}
+#define CHECKEQ_STR(y, x)                                                                          \
+	{                                                                                          \
+		const char *sret;                                                                  \
+		sret = (x);                                                                        \
+		if (!sret || strcmp(y, sret)) {                                                    \
+			fprintf(stderr,                                                            \
+				"line %d: %s: expect %s, got %s\n",                                \
+				__LINE__,                                                          \
+				#x,                                                                \
+				y,                                                                 \
+				sret ? sret : "(null)");                                           \
+			return 1;                                                                  \
+		}                                                                                  \
+	}
+#define CHECKEQ_NULL(x)                                                                            \
+	{                                                                                          \
+		const void *pret;                                                                  \
+		pret = (x);                                                                        \
+		if (pret) {                                                                        \
+			fprintf(stderr, "line %d: %s: expect null, got %p\n", __LINE__, #x, pret); \
+			return 1;                                                                  \
+		}                                                                                  \
+	}
 
 /**
  * enum gen_t: Options to control the output of the test FIT
@@ -78,30 +99,30 @@
  * @GEN_VERSION: Generate a version for the config
  */
 enum gen_t {
-	GEN_CFGS		= 1 << 0,
-	GEN_CFG			= 1 << 1,
-	GEN_COMPAT		= 1 << 2,
-	GEN_IMGS		= 1 << 3,
-	GEN_IMG			= 1 << 4,
-	GEN_DATA		= 1 << 5,
-	GEN_EXT_DATA		= 1 << 6,
-	GEN_DATA_SIZE		= 1 << 7,
-	GEN_CRC32_ALGO		= 1 << 8,
-	GEN_CRC32_VAL		= 1 << 9,
-	GEN_CRC32_BAD_SIZE	= 1 << 10,
-	GEN_CRC32_BAD_VAL	= 1 << 11,
-	GEN_BAD_ALGO		= 1 << 12,
-	GEN_STORE_OFFSET	= 1 << 13,
-	GEN_BAD_STORE_OFFSET	= 1 << 14,
-	GEN_BAD_DATA_SIZE	= 1 << 15,
-	GEN_BAD_DATA_OFFSET	= 1 << 16,
-	GEN_SKIP_OFFSET		= 1 << 17,
-	GEN_BAD_SKIP_OFFSET	= 1 << 18,
-	GEN_VERSION		= 1 << 19,
+	GEN_CFGS = 1 << 0,
+	GEN_CFG = 1 << 1,
+	GEN_COMPAT = 1 << 2,
+	GEN_IMGS = 1 << 3,
+	GEN_IMG = 1 << 4,
+	GEN_DATA = 1 << 5,
+	GEN_EXT_DATA = 1 << 6,
+	GEN_DATA_SIZE = 1 << 7,
+	GEN_CRC32_ALGO = 1 << 8,
+	GEN_CRC32_VAL = 1 << 9,
+	GEN_CRC32_BAD_SIZE = 1 << 10,
+	GEN_CRC32_BAD_VAL = 1 << 11,
+	GEN_BAD_ALGO = 1 << 12,
+	GEN_STORE_OFFSET = 1 << 13,
+	GEN_BAD_STORE_OFFSET = 1 << 14,
+	GEN_BAD_DATA_SIZE = 1 << 15,
+	GEN_BAD_DATA_OFFSET = 1 << 16,
+	GEN_SKIP_OFFSET = 1 << 17,
+	GEN_BAD_SKIP_OFFSET = 1 << 18,
+	GEN_VERSION = 1 << 19,
 };
 
 /* Size of the test FIT we use */
-#define FIT_SIZE	1024
+#define FIT_SIZE 1024
 
 /* Buffer containing the test FIT */
 static char fit_buf[FIT_SIZE];
@@ -114,7 +135,8 @@ static char fit_buf[FIT_SIZE];
  * @flags: Mask of 'enum gen_t' controlling what is generated
  *
  */
-static int build_fit(char *buf, int size, int flags)
+static int
+build_fit(char *buf, int size, int flags)
 {
 	const int data_offset = 4;
 
@@ -157,11 +179,9 @@ static int build_fit(char *buf, int size, int flags)
 
 			if (flags & GEN_EXT_DATA) {
 				if (flags & GEN_BAD_DATA_OFFSET) {
-					fdt_property_u32(buf, "data-offset",
-							 -3);
+					fdt_property_u32(buf, "data-offset", -3);
 				} else {
-					fdt_property_u32(buf, "data-offset",
-							 data_offset);
+					fdt_property_u32(buf, "data-offset", data_offset);
 				}
 				if (flags & GEN_DATA_SIZE)
 					fdt_property_u32(buf, "data-size", 3);
@@ -230,7 +250,8 @@ static int build_fit(char *buf, int size, int flags)
 };
 
 /* Test an invalid FIT */
-static int test_base(void)
+static int
+test_base(void)
 {
 	struct fit_info s_fit, *fit = &s_fit;
 
@@ -247,7 +268,8 @@ static int test_base(void)
 }
 
 /* Test a FIT with configuration but not images */
-static int test_cfg(void)
+static int
+test_cfg(void)
 {
 	struct fit_info s_fit, *fit = &s_fit;
 	int cfg;
@@ -295,14 +317,14 @@ static int test_cfg(void)
 }
 
 /* Normal FIT with compatible string and image but no data */
-static int test_img(void)
+static int
+test_img(void)
 {
 	struct fit_info s_fit, *fit = &s_fit;
 	int size, cfg, img;
 	const char *data;
 
-	CALL(build_fit(fit_buf, FIT_SIZE,
-		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS));
+	CALL(build_fit(fit_buf, FIT_SIZE, GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS));
 	CALL(fit_open(fit, fit_buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
@@ -311,8 +333,7 @@ static int test_img(void)
 	fit_close(fit);
 
 	/* With an image as well */
-	CALL(build_fit(fit_buf, FIT_SIZE,
-		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG));
+	CALL(build_fit(fit_buf, FIT_SIZE, GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG));
 	CALL(fit_open(fit, fit_buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
@@ -329,16 +350,17 @@ static int test_img(void)
 }
 
 /* Normal FIT with data as well */
-static int test_data(void)
+static int
+test_data(void)
 {
 	struct fit_info s_fit, *fit = &s_fit;
 	int size, cfg, img;
 	const char *data;
 
 	/* With data as well */
-	CALL(build_fit(fit_buf, FIT_SIZE,
-		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG |
-		       GEN_DATA));
+	CALL(build_fit(fit_buf,
+		       FIT_SIZE,
+		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_DATA));
 	CALL(fit_open(fit, fit_buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
@@ -357,16 +379,17 @@ static int test_data(void)
 }
 
 /* Normal FIT with external data */
-static int test_ext_data(void)
+static int
+test_ext_data(void)
 {
 	struct fit_info s_fit, *fit = &s_fit;
 	int size, cfg, img;
 	const char *data;
 
 	/* Test with missing data-size property */
-	CALL(build_fit(fit_buf, FIT_SIZE,
-		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG |
-		       GEN_EXT_DATA));
+	CALL(build_fit(fit_buf,
+		       FIT_SIZE,
+		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_EXT_DATA));
 	CALL(fit_open(fit, fit_buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
@@ -378,9 +401,10 @@ static int test_ext_data(void)
 	fit_close(fit);
 
 	/* Test with bad data-size property */
-	CALL(build_fit(fit_buf, FIT_SIZE,
-		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG |
-		       GEN_EXT_DATA | GEN_BAD_DATA_SIZE));
+	CALL(build_fit(fit_buf,
+		       FIT_SIZE,
+		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_EXT_DATA |
+			   GEN_BAD_DATA_SIZE));
 	CALL(fit_open(fit, fit_buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
@@ -392,9 +416,10 @@ static int test_ext_data(void)
 	fit_close(fit);
 
 	/* Test with bad data-offset property */
-	CALL(build_fit(fit_buf, FIT_SIZE,
-		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG |
-		       GEN_EXT_DATA | GEN_DATA_SIZE | GEN_BAD_DATA_OFFSET));
+	CALL(build_fit(fit_buf,
+		       FIT_SIZE,
+		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_EXT_DATA |
+			   GEN_DATA_SIZE | GEN_BAD_DATA_OFFSET));
 	CALL(fit_open(fit, fit_buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
@@ -406,9 +431,10 @@ static int test_ext_data(void)
 	fit_close(fit);
 
 	/* Test with valid data-size property */
-	CALL(build_fit(fit_buf, FIT_SIZE,
-		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG |
-		       GEN_EXT_DATA | GEN_DATA_SIZE));
+	CALL(build_fit(fit_buf,
+		       FIT_SIZE,
+		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_EXT_DATA |
+			   GEN_DATA_SIZE));
 	CALL(fit_open(fit, fit_buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
@@ -424,7 +450,8 @@ static int test_ext_data(void)
 }
 
 /* Check data with CRC32 */
-static int test_crc32(void)
+static int
+test_crc32(void)
 {
 	struct fit_info s_fit, *fit = &s_fit;
 	int size, cfg, img;
@@ -432,9 +459,10 @@ static int test_crc32(void)
 	int node;
 
 	/* Missing 'algo' property gives an error when 'value' is provided */
-	CALL(build_fit(fit_buf, FIT_SIZE,
-		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG |
-		       GEN_DATA | GEN_CRC32_VAL));
+	CALL(build_fit(fit_buf,
+		       FIT_SIZE,
+		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_DATA |
+			   GEN_CRC32_VAL));
 	CALL(fit_open(fit, fit_buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
@@ -448,9 +476,10 @@ static int test_crc32(void)
 	fit_close(fit);
 
 	/* Unknown 'algo' property gives an error when 'value' is provided */
-	CALL(build_fit(fit_buf, FIT_SIZE,
-		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG |
-		       GEN_DATA | GEN_BAD_ALGO | GEN_CRC32_VAL));
+	CALL(build_fit(fit_buf,
+		       FIT_SIZE,
+		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_DATA |
+			   GEN_BAD_ALGO | GEN_CRC32_VAL));
 	CALL(fit_open(fit, fit_buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
@@ -464,9 +493,10 @@ static int test_crc32(void)
 	fit_close(fit);
 
 	/* Missing 'value' property means the hash is ignored */
-	CALL(build_fit(fit_buf, FIT_SIZE,
-		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG |
-		       GEN_DATA | GEN_CRC32_ALGO));
+	CALL(build_fit(fit_buf,
+		       FIT_SIZE,
+		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_DATA |
+			   GEN_CRC32_ALGO));
 	CALL(fit_open(fit, fit_buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
@@ -485,9 +515,10 @@ static int test_crc32(void)
 	fit_close(fit);
 
 	/* 'value' and 'algo' present but the value size is wrong */
-	CALL(build_fit(fit_buf, FIT_SIZE,
-		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG |
-		       GEN_DATA | GEN_CRC32_ALGO | GEN_CRC32_BAD_SIZE));
+	CALL(build_fit(fit_buf,
+		       FIT_SIZE,
+		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_DATA |
+			   GEN_CRC32_ALGO | GEN_CRC32_BAD_SIZE));
 	CALL(fit_open(fit, fit_buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
@@ -501,9 +532,10 @@ static int test_crc32(void)
 	fit_close(fit);
 
 	/* 'value' and 'algo' present but the value is wrong */
-	CALL(build_fit(fit_buf, FIT_SIZE,
-		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG |
-		       GEN_DATA | GEN_CRC32_ALGO | GEN_CRC32_BAD_VAL));
+	CALL(build_fit(fit_buf,
+		       FIT_SIZE,
+		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_DATA |
+			   GEN_CRC32_ALGO | GEN_CRC32_BAD_VAL));
 	CALL(fit_open(fit, fit_buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
@@ -517,9 +549,10 @@ static int test_crc32(void)
 	fit_close(fit);
 
 	/* 'value' and 'algo' present with correct value */
-	CALL(build_fit(fit_buf, FIT_SIZE,
-		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG |
-		       GEN_DATA | GEN_CRC32_ALGO | GEN_CRC32_VAL));
+	CALL(build_fit(fit_buf,
+		       FIT_SIZE,
+		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_DATA |
+			   GEN_CRC32_ALGO | GEN_CRC32_VAL));
 	CALL(fit_open(fit, fit_buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
@@ -536,14 +569,14 @@ static int test_crc32(void)
 }
 
 /* Check data with store-offset */
-static int test_store_offset(void)
+static int
+test_store_offset(void)
 {
 	struct fit_info s_fit, *fit = &s_fit;
 	int cfg, img;
 
 	/* Missing 'store-offset' property */
-	CALL(build_fit(fit_buf, FIT_SIZE,
-		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG));
+	CALL(build_fit(fit_buf, FIT_SIZE, GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG));
 	CALL(fit_open(fit, fit_buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
@@ -555,9 +588,10 @@ static int test_store_offset(void)
 	fit_close(fit);
 
 	/* Negative 'store-offset' property */
-	CALL(build_fit(fit_buf, FIT_SIZE,
-		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG |
-		       GEN_BAD_STORE_OFFSET));
+	CALL(
+	    build_fit(fit_buf,
+		      FIT_SIZE,
+		      GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_BAD_STORE_OFFSET));
 	CALL(fit_open(fit, fit_buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
@@ -569,9 +603,9 @@ static int test_store_offset(void)
 	fit_close(fit);
 
 	/* Valid 'store-offset' property */
-	CALL(build_fit(fit_buf, FIT_SIZE,
-		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG |
-		       GEN_STORE_OFFSET));
+	CALL(build_fit(fit_buf,
+		       FIT_SIZE,
+		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_STORE_OFFSET));
 	CALL(fit_open(fit, fit_buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
@@ -586,7 +620,8 @@ static int test_store_offset(void)
 }
 
 /* Check getting config version */
-static int test_version(void)
+static int
+test_version(void)
 {
 	struct fit_info s_fit, *fit = &s_fit;
 	const char *version;
@@ -610,7 +645,8 @@ static int test_version(void)
 
 	return 0;
 }
-int fit_test(void)
+int
+fit_test(void)
 {
 	g_info("Running tests\n");
 

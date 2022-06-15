@@ -10,6 +10,7 @@
 #ifndef __FU_PLUGIN_VBE_FIT_TEST_H
 #define __FU_PLUGIN_VBE_FIT_TEST_H
 
-int fit_test(void);
+int
+fit_test(void);
 
 #endif /* __FU_PLUGIN_VBE_FIT_TEST_H */

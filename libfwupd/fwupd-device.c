@@ -73,22 +73,20 @@ typedef struct {
 	FwupdDevice *parent; /* noref */
 } FwupdDevicePrivate;
 
-enum {
-	PROP_0,
-	PROP_VERSION_FORMAT,
-	PROP_FLAGS,
-	PROP_PROTOCOL,
-	PROP_STATUS,
-	PROP_PARENT,
-	PROP_UPDATE_STATE,
-	PROP_UPDATE_MESSAGE,
-	PROP_UPDATE_ERROR,
-	PROP_UPDATE_IMAGE,
-	PROP_BATTERY_LEVEL,
-	PROP_BATTERY_THRESHOLD,
-	PROP_PROBLEMS,
-	PROP_LAST
-};
+enum { PROP_0,
+       PROP_VERSION_FORMAT,
+       PROP_FLAGS,
+       PROP_PROTOCOL,
+       PROP_STATUS,
+       PROP_PARENT,
+       PROP_UPDATE_STATE,
+       PROP_UPDATE_MESSAGE,
+       PROP_UPDATE_ERROR,
+       PROP_UPDATE_IMAGE,
+       PROP_BATTERY_LEVEL,
+       PROP_BATTERY_THRESHOLD,
+       PROP_PROBLEMS,
+       PROP_LAST };
 
 G_DEFINE_TYPE_WITH_PRIVATE(FwupdDevice, fwupd_device, G_TYPE_OBJECT)
 #define GET_PRIVATE(o) (fwupd_device_get_instance_private(o))

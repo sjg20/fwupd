@@ -221,9 +221,6 @@ New VBE methods can be added in the plugin file `fu-plugin-vbe.c` in the
 
 ## Finding out more
 
-See [fwupd site](https://github.com/fwupd/fwupd) for information about how
-to discuss or chat about fwupd.
-
 You can use the U-Boot mailing list or `u-boot` IRC on `libera.chat` to ask
 questions specific to VBE and firmware.
 

@@ -15,43 +15,45 @@
 
 #include <libfdt.h>
 #include <zlib.h>
+
 #include "fit.h"
 
-#define FIT_CONFIG_PATH		"/configurations"
-#define FIT_IMAGE_PATH		"/images"
+#define FIT_CONFIG_PATH "/configurations"
+#define FIT_IMAGE_PATH	"/images"
 
-#define FIT_PROP_COMPATIBLE	"compatible"
-#define FIT_PROP_DATA		"data"
-#define FIT_PROP_ALGO		"algo"
-#define FIT_PROP_DATA_OFFSET	"data-offset"
-#define FIT_PROP_DATA_SIZE	"data-size"
-#define FIT_PROP_STORE_OFFSET	"store-offset"
-#define FIT_PROP_VALUE		"value"
-#define FIT_PROP_SKIP_OFFSET	"skip-offset"
-#define FIT_VERSION		"version"
+#define FIT_PROP_COMPATIBLE   "compatible"
+#define FIT_PROP_DATA	      "data"
+#define FIT_PROP_ALGO	      "algo"
+#define FIT_PROP_DATA_OFFSET  "data-offset"
+#define FIT_PROP_DATA_SIZE    "data-size"
+#define FIT_PROP_STORE_OFFSET "store-offset"
+#define FIT_PROP_VALUE	      "value"
+#define FIT_PROP_SKIP_OFFSET  "skip-offset"
+#define FIT_VERSION	      "version"
 
 static const char *const fit_err[FITE_COUNT] = {
-	[FITE_BAD_HEADER]	= "Bad device tree header",
-	[FITE_NO_CONFIG_NODE]	= "Missing /configuration node",
-	[FITE_NOT_FOUND]	= "Not found",
-	[FITE_NO_IMAGES_NODE]	= "Missing /images node",
-	[FITE_MISSING_IMAGE]	= "Missing image referred to by configuration",
-	[FITE_MISSING_SIZE]	= "Missing data-size for external data",
-	[FITE_MISSING_VALUE]	= "Missing value property for hash",
-	[FITE_MISSING_ALGO]	= "Missing algo property for hash",
-	[FITE_UNKNOWN_ALGO]	= "Unknown algo name",
-	[FITE_INVALID_HASH_SIZE] = "Invalid hash value size",
-	[FITE_HASH_MISMATCH]	= "Calculated hash value does not match",
-	[FITE_NEGATIVE_OFFSET]	= "Image has negative store-offset or data-offset",
-	[FITE_DATA_OFFSET_RANGE] = "Image data-offset is out of range of data",
-	[FITE_NEGATIVE_SIZE]	= "Image data-size is a negative value",
+    [FITE_BAD_HEADER] = "Bad device tree header",
+    [FITE_NO_CONFIG_NODE] = "Missing /configuration node",
+    [FITE_NOT_FOUND] = "Not found",
+    [FITE_NO_IMAGES_NODE] = "Missing /images node",
+    [FITE_MISSING_IMAGE] = "Missing image referred to by configuration",
+    [FITE_MISSING_SIZE] = "Missing data-size for external data",
+    [FITE_MISSING_VALUE] = "Missing value property for hash",
+    [FITE_MISSING_ALGO] = "Missing algo property for hash",
+    [FITE_UNKNOWN_ALGO] = "Unknown algo name",
+    [FITE_INVALID_HASH_SIZE] = "Invalid hash value size",
+    [FITE_HASH_MISMATCH] = "Calculated hash value does not match",
+    [FITE_NEGATIVE_OFFSET] = "Image has negative store-offset or data-offset",
+    [FITE_DATA_OFFSET_RANGE] = "Image data-offset is out of range of data",
+    [FITE_NEGATIVE_SIZE] = "Image data-size is a negative value",
 };
 
 static const char *const fit_algo[FIT_ALGO_COUNT] = {
-	[FIT_ALGO_CRC32]	= "crc32",
+    [FIT_ALGO_CRC32] = "crc32",
 };
 
-int fit_open(struct fit_info *fit, const void *buf, size_t size)
+int
+fit_open(struct fit_info *fit, const void *buf, size_t size)
 {
 	int ret;
 
@@ -64,11 +66,13 @@ int fit_open(struct fit_info *fit, const void *buf, size_t size)
 	return false;
 }
 
-void fit_close(struct fit_info *fit)
+void
+fit_close(struct fit_info *fit)
 {
 }
 
-const char *fit_strerror(int err)
+const char *
+fit_strerror(int err)
 {
 	if (err >= 0)
 		return "no error";
@@ -79,8 +83,8 @@ const char *fit_strerror(int err)
 	return fit_err[err];
 }
 
-static int fit_getprop_u32(struct fit_info *fit, int node, const char *prop,
-			   int *valp)
+static int
+fit_getprop_u32(struct fit_info *fit, int node, const char *prop, int *valp)
 {
 	const fdt32_t *val;
 
@@ -92,7 +96,8 @@ static int fit_getprop_u32(struct fit_info *fit, int node, const char *prop,
 	return 0;
 }
 
-int fit_first_cfg(struct fit_info *fit)
+int
+fit_first_cfg(struct fit_info *fit)
 {
 	int subnode, node;
 
@@ -107,7 +112,8 @@ int fit_first_cfg(struct fit_info *fit)
 	return subnode;
 }
 
-int fit_next_cfg(struct fit_info *fit, int preb_cfg)
+int
+fit_next_cfg(struct fit_info *fit, int preb_cfg)
 {
 	int subnode;
 
@@ -118,17 +124,20 @@ int fit_next_cfg(struct fit_info *fit, int preb_cfg)
 	return subnode;
 }
 
-const char *fit_cfg_name(struct fit_info *fit, int cfg)
+const char *
+fit_cfg_name(struct fit_info *fit, int cfg)
 {
 	return fdt_get_name(fit->blob, cfg, NULL);
 }
 
-const char *fit_cfg_compat_item(struct fit_info *fit, int cfg, int index)
+const char *
+fit_cfg_compat_item(struct fit_info *fit, int cfg, int index)
 {
 	return fdt_stringlist_get(fit->blob, cfg, FIT_PROP_COMPATIBLE, index, NULL);
 }
 
-int fit_cfg_img_count(struct fit_info *fit, int cfg, const char *prop_name)
+int
+fit_cfg_img_count(struct fit_info *fit, int cfg, const char *prop_name)
 {
 	int count;
 
@@ -139,7 +148,8 @@ int fit_cfg_img_count(struct fit_info *fit, int cfg, const char *prop_name)
 	return count;
 }
 
-int fit_cfg_img(struct fit_info *fit, int cfg, const char *prop_name, int index)
+int
+fit_cfg_img(struct fit_info *fit, int cfg, const char *prop_name, int index)
 {
 	const char *name;
 	int images, image;
@@ -159,17 +169,20 @@ int fit_cfg_img(struct fit_info *fit, int cfg, const char *prop_name, int index)
 	return image;
 }
 
-const char *fit_cfg_version(struct fit_info *fit, int cfg)
+const char *
+fit_cfg_version(struct fit_info *fit, int cfg)
 {
 	return fdt_getprop(fit->blob, cfg, FIT_VERSION, NULL);
 }
 
-const char *fit_img_name(struct fit_info *fit, int img)
+const char *
+fit_img_name(struct fit_info *fit, int img)
 {
 	return fdt_get_name(fit->blob, img, NULL);
 }
 
-static enum fit_algo_t fit_get_algo(struct fit_info *fit, int node)
+static enum fit_algo_t
+fit_get_algo(struct fit_info *fit, int node)
 {
 	const char *algo;
 	int i;
@@ -186,7 +199,8 @@ static enum fit_algo_t fit_get_algo(struct fit_info *fit, int node)
 	return -FITE_UNKNOWN_ALGO;
 }
 
-int fit_check_hash(struct fit_info *fit, int node, const char *data, int size)
+int
+fit_check_hash(struct fit_info *fit, int node, const char *data, int size)
 {
 	int algo;
 	const char *value;
@@ -221,7 +235,8 @@ int fit_check_hash(struct fit_info *fit, int node, const char *data, int size)
 	return 0;
 }
 
-int fit_check_hashes(struct fit_info *fit, int img, const char *data, int size)
+int
+fit_check_hashes(struct fit_info *fit, int img, const char *data, int size)
 {
 	int node;
 	int ret;
@@ -240,7 +255,8 @@ int fit_check_hashes(struct fit_info *fit, int img, const char *data, int size)
 	return 0;
 }
 
-const char *fit_img_data(struct fit_info *fit, int img, int *sizep)
+const char *
+fit_img_data(struct fit_info *fit, int img, int *sizep)
 {
 	const char *data;
 	int offset, size;
@@ -278,8 +294,8 @@ const char *fit_img_data(struct fit_info *fit, int img, int *sizep)
 
 		ret = fit_check_hashes(fit, img, data, size);
 		if (ret) {
-			 *sizep = ret;
-			 return NULL;
+			*sizep = ret;
+			return NULL;
 		}
 	}
 	*sizep = size;
@@ -287,7 +303,8 @@ const char *fit_img_data(struct fit_info *fit, int img, int *sizep)
 	return data;
 }
 
-int fit_img_store_offset(struct fit_info *fit, int img)
+int
+fit_img_store_offset(struct fit_info *fit, int img)
 {
 	int offset;
 	int ret;

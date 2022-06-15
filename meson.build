@@ -454,7 +454,7 @@ if build_standalone
 endif
 
 libfdt = cc.find_library('fdt', required: get_option('plugin_vbe'))
-libz = cc.find_library('z', required: get_option('plugin_vbe'))
+libz = dependency('zlib', required: get_option('plugin_vbe'))
 
 if libsystemd.found()
   systemd = dependency('systemd', version : '>= 211', required: get_option('systemd'))
