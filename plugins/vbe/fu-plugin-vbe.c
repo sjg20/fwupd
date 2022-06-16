@@ -221,6 +221,7 @@ fu_plugin_vbe_startup(FuPlugin *plugin, FuProgress *progress, GError **error)
 	gsize len;
 	gint ret;
 
+	fu_progress_set_id(progress, G_STRLOC);
 	ret = fit_test();
 	if (ret) {
 		g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_INTERNAL, "fit_test failed: %d", ret);
@@ -228,7 +229,7 @@ fu_plugin_vbe_startup(FuPlugin *plugin, FuProgress *progress, GError **error)
 	}
 
 	/* get the VBE directory */
-	state_dir = fu_common_get_path(FU_PATH_KIND_LOCALSTATEDIR_PKG);
+	state_dir = fu_path_from_kind(FU_PATH_KIND_LOCALSTATEDIR_PKG);
 	vbe_dir = g_build_filename(state_dir, "vbe", NULL);
 	priv->vbe_dir = g_steal_pointer(&vbe_dir);
 
@@ -270,6 +271,7 @@ fu_plugin_vbe_coldplug(FuPlugin *plugin, FuProgress *progress, GError **error)
 	struct FuVbeMethod *meth;
 	GList *entry;
 
+	fu_progress_set_id(progress, G_STRLOC);
 	/* create a driver for each method */
 	for (entry = g_list_first(priv->methods); entry; entry = g_list_next(entry)) {
 		const struct VbeDriver *driver;

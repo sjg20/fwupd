@@ -272,12 +272,6 @@ To set up the vbe directory:
 Some things you might need to install:
 
 ```bash
-   sudo apt install build-essential git python3-pip pkg-config cmake \
- libglib2.0-dev liblzma-dev python3.10-venv libgirepository1.0-dev \
- gtk-doc-tools libgnutls28-dev libgpgme-dev gnutls-bin valac \
- libusb-1.0-0-dev python3-jinja2 python3-toml python3-typogrify \
- gcab gettext ninja-build libjson-glib-dev libxml2-utils libfdt-dev \
- gir1.2-gusb-1.0 appstream-util
 
    pip3 install meson
    mkdir build
@@ -288,6 +282,7 @@ Some things you might need to install:
 To build the example:
 
 ```bash
+   sudo apt install appstream-util u-boot-tools
    cd /path/to/fwupd/plugins/vbe/example
    ./build.sh
 ```

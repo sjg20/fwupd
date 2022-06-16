@@ -583,6 +583,7 @@ fu_vbe_simple_device_write_firmware(FuDevice *device,
 	gsize size = 0;
 	gint ret;
 
+	fu_progress_set_id(progress, G_STRLOC);
 	bytes = fu_firmware_get_bytes(firmware, error);
 	if (!bytes)
 		return FALSE;
@@ -607,13 +608,6 @@ fu_vbe_simple_device_write_firmware(FuDevice *device,
 	return TRUE;
 }
 
-static FuFirmware *
-fu_vbe_simple_device_read_firmware(FuDevice *self, FuProgress *progress, GError **error)
-{
-	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "read");
-	return NULL;
-}
-
 static GBytes *
 fu_vbe_simple_device_upload(FuDevice *device, FuProgress *progress, GError **error)
 {
@@ -628,6 +622,7 @@ fu_vbe_simple_device_upload(FuDevice *device, FuProgress *progress, GError **err
 	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "upload");
 
 	/* notify UI */
+	fu_progress_set_id(progress, G_STRLOC);
 	fu_progress_set_status(progress, FWUPD_STATUS_DEVICE_READ);
 
 	ret = lseek(dev->fd, dev->area_start, SEEK_SET);
@@ -676,6 +671,14 @@ fu_vbe_simple_device_upload(FuDevice *device, FuProgress *progress, GError **err
 }
 
 static void
+fu_vbe_simple_device_set_progress(FuDevice *self, FuProgress *progress)
+{
+	fu_progress_set_id(progress, G_STRLOC);
+	fu_progress_add_flag(progress, FU_PROGRESS_FLAG_GUESSED);
+	fu_progress_add_step(progress, FWUPD_STATUS_DEVICE_WRITE, 100, "write");
+}
+
+static void
 fu_vbe_simple_device_init(FuVbeSimpleDevice *self)
 {
 	g_autofree gchar *state_dir = NULL;
@@ -693,7 +696,7 @@ fu_vbe_simple_device_init(FuVbeSimpleDevice *self)
 	fu_device_set_version_format(FU_DEVICE(self), FWUPD_VERSION_FORMAT_PAIR);
 	fu_device_add_icon(FU_DEVICE(self), "computer");
 
-	state_dir = fu_common_get_path(FU_PATH_KIND_LOCALSTATEDIR_PKG);
+	state_dir = fu_path_from_kind(FU_PATH_KIND_LOCALSTATEDIR_PKG);
 	vbe_fname = g_build_filename(state_dir, "vbe", "simple.dtb", NULL);
 	self->vbe_fname = g_steal_pointer(&vbe_fname);
 }
@@ -829,7 +832,7 @@ fu_vbe_simple_device_class_init(FuVbeSimpleDeviceClass *klass)
 	dev->probe = fu_vbe_simple_device_probe;
 	dev->open = fu_vbe_simple_device_open;
 	dev->close = fu_vbe_simple_device_close;
+	dev->set_progress = fu_vbe_simple_device_set_progress;
 	dev->write_firmware = fu_vbe_simple_device_write_firmware;
 	dev->dump_firmware = fu_vbe_simple_device_upload;
-	dev->read_firmware = fu_vbe_simple_device_read_firmware;
 }

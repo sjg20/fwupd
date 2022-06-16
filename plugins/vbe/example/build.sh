@@ -1,4 +1,7 @@
 #!/bin/sh
+
+set -e
+
 appstream-util validate-relax com.Vbe.Board.metainfo.xml
 
 #dd if=/dev/zero of=update.bin bs=1M count=1
