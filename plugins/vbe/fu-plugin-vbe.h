@@ -11,6 +11,7 @@
 
 #include <fwupdplugin.h>
 
+/* G_OBJECT properties associated with the plugin */
 enum { PROP_0, PROP_VBE_METHOD, PROP_VBE_FDT, PROP_VBE_NODE, PROP_LAST };
 
 typedef FuDevice *(*vbe_device_new_func)(FuContext *ctx,

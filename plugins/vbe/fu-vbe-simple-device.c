@@ -22,7 +22,7 @@
 #include "fit.h"
 #include "fu-dfu-common.h"
 #include "fu-plugin-vbe.h"
-#include "vbe-simple.h"
+#include "fu-vbe-simple-device.h"
 
 #define DEBUG 0
 
@@ -583,7 +583,6 @@ fu_vbe_simple_device_write_firmware(FuDevice *device,
 	gsize size = 0;
 	gint ret;
 
-	fu_progress_set_id(progress, G_STRLOC);
 	bytes = fu_firmware_get_bytes(firmware, error);
 	if (!bytes)
 		return FALSE;
@@ -782,11 +781,11 @@ static void
 fu_vbe_simple_device_class_init(FuVbeSimpleDeviceClass *klass)
 {
 	GParamSpec *pspec;
-	GObjectClass *objc = G_OBJECT_CLASS(klass);
-	FuDeviceClass *dev = FU_DEVICE_CLASS(klass);
+	GObjectClass *klass_device = G_OBJECT_CLASS(klass);
+	FuDeviceClass *object_class = FU_DEVICE_CLASS(klass);
 
-	objc->get_property = fu_vbe_simple_device_get_property;
-	objc->set_property = fu_vbe_simple_device_set_property;
+	klass_device->get_property = fu_vbe_simple_device_get_property;
+	klass_device->set_property = fu_vbe_simple_device_set_property;
 
 	/**
 	 * FuVbeSimpleDevice:vbe_method:
@@ -799,7 +798,7 @@ fu_vbe_simple_device_class_init(FuVbeSimpleDeviceClass *klass)
 				"Method used to update firmware (e.g. 'mmc-simple'",
 				NULL,
 				G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_NAME);
-	g_object_class_install_property(objc, PROP_VBE_METHOD, pspec);
+	g_object_class_install_property(klass_device, PROP_VBE_METHOD, pspec);
 
 	/**
 	 * FuVbeSimpleDevice:fdt:
@@ -811,7 +810,7 @@ fu_vbe_simple_device_class_init(FuVbeSimpleDeviceClass *klass)
 				 NULL,
 				 "Device tree blob containing method parameters",
 				 G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_NAME);
-	g_object_class_install_property(objc, PROP_VBE_FDT, pspec);
+	g_object_class_install_property(klass_device, PROP_VBE_FDT, pspec);
 
 	/**
 	 * FuVbeSimpleDevice:vbe_method:
@@ -825,14 +824,14 @@ fu_vbe_simple_device_class_init(FuVbeSimpleDeviceClass *klass)
 				 INT_MAX,
 				 -1,
 				 G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_NAME);
-	g_object_class_install_property(objc, PROP_VBE_NODE, pspec);
+	g_object_class_install_property(klass_device, PROP_VBE_NODE, pspec);
 
-	objc->constructed = fu_vbe_simple_device_constructed;
-	objc->finalize = fu_vbe_simple_device_finalize;
-	dev->probe = fu_vbe_simple_device_probe;
-	dev->open = fu_vbe_simple_device_open;
-	dev->close = fu_vbe_simple_device_close;
-	dev->set_progress = fu_vbe_simple_device_set_progress;
-	dev->write_firmware = fu_vbe_simple_device_write_firmware;
-	dev->dump_firmware = fu_vbe_simple_device_upload;
+	klass_device->constructed = fu_vbe_simple_device_constructed;
+	klass_device->finalize = fu_vbe_simple_device_finalize;
+	object_class->probe = fu_vbe_simple_device_probe;
+	object_class->open = fu_vbe_simple_device_open;
+	object_class->close = fu_vbe_simple_device_close;
+	object_class->set_progress = fu_vbe_simple_device_set_progress;
+	object_class->write_firmware = fu_vbe_simple_device_write_firmware;
+	object_class->dump_firmware = fu_vbe_simple_device_upload;
 }

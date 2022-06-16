@@ -15,7 +15,7 @@
 
 #include "fit_test.h"
 #include "fu-plugin-vbe.h"
-#include "vbe-simple.h"
+#include "fu-vbe-simple-device.h"
 
 /* Kernel device tree, used for system information */
 #define KERNEL_DT "/sys/firmware/fdt"
@@ -151,16 +151,16 @@ vbe_locate_device(gchar *fdt, gint node, struct FuVbeMethod **methp, GError **er
 static gboolean
 process_system(FuPluginData *priv, gchar *fdt, gsize fdt_len, GError **error)
 {
-	gint ret, parent, node;
+	gint rc, parent, node;
 	gint found;
 
-	ret = fdt_check_header(fdt);
-	if (ret) {
+	rc = fdt_check_header(fdt);
+	if (rc != 0) {
 		g_set_error(error,
 			    FWUPD_ERROR,
 			    FWUPD_ERROR_INVALID_FILE,
 			    "System DT is corrupt (%s)",
-			    fdt_strerror(ret));
+			    fdt_strerror(rc));
 		return FALSE;
 	}
 	if (fdt_totalsize(fdt) != fdt_len) {
@@ -179,7 +179,7 @@ process_system(FuPluginData *priv, gchar *fdt, gsize fdt_len, GError **error)
 			    FWUPD_ERROR_INVALID_FILE,
 			    "Missing node '%s' (%s)",
 			    NODE_PATH,
-			    fdt_strerror(ret));
+			    fdt_strerror(rc));
 		return FALSE;
 	}
 
@@ -298,8 +298,9 @@ fu_plugin_vbe_coldplug(FuPlugin *plugin, FuProgress *progress, GError **error)
 		fu_device_set_version_bootloader(dev, version);
 		fu_device_add_icon(dev, "computer");
 		fu_device_add_flag(dev, FWUPD_DEVICE_FLAG_UPDATABLE);
+
+		/* this takes a ref on the device */
 		fu_plugin_device_add(plugin, dev);
-		g_object_ref(dev);
 	}
 
 	return TRUE;
