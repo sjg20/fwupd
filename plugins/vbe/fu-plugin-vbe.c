@@ -26,6 +26,13 @@
 /* Path to the method subnodes in the system info */
 #define NODE_PATH "/chosen/fwupd"
 
+/**
+ * This stores information used by all VBE methods
+ *
+ * @fdt: Device tree containing the info
+ * @vbe_dir: Path to the VBE directory, e.g /var/local/lib/fwupd/vbe
+ * @methods: List of methods that are being used, each a FuVbeMethod
+ */
 struct FuPluginData {
 	gchar *fdt;
 	gchar *vbe_dir;
@@ -86,17 +93,6 @@ enum { PROP_0, PROP_VBE_METHOD, PROP_VBE_FDT, PROP_VBE_NODE, PROP_LAST };
  * list, i.e. a contiguous list of NULL-terminated strings
  * @compat_len: Length of @compat in bytes
  * @storage: Storage device name (e.g. "mmc1")
- * @devname: Device name (e.g. /dev/mmcblk1)
- * @area_start: Start offset of area for firmware
- * @area_size: Size of firmware area
- * @skip_offset: This allows an initial part of the image to be skipped when
- * writing. This means that the first part of the image is ignored, with just
- * the latter part being written. For example, if this is 0x200 then the first
- * 512 bytes of the image (which must be present in the image) are skipped and
- * the bytes after that are written to the store offset.
- * @fd: File descriptor, if the device is open
- * @vbe_fname: Filename of the VBE state file
- * @state: State of this update method
  */
 typedef struct {
 	gchar *vbe_method;
@@ -140,6 +136,15 @@ fu_vbe_device_get_fdt(FuVbeDevice *self)
 
 	g_return_val_if_fail(FU_IS_VBE_DEVICE(self), NULL);
 	return priv->fdt;
+}
+
+int
+fu_vbe_device_get_node(FuVbeDevice *self)
+{
+	FuVbeDevicePrivate *priv = GET_PRIVATE(self);
+
+	g_return_val_if_fail(FU_IS_VBE_DEVICE(self), -1);
+	return priv->node;
 }
 
 /**
@@ -308,7 +313,7 @@ fu_plugin_vbe_startup(FuPlugin *plugin, FuProgress *progress, GError **error)
 			return FALSE;
 		}
 	}
-	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "Processing system DT '%s'", bfname);
+	g_debug("Processing system DT '%s'", bfname);
 	priv->fdt = buf;
 	if (!process_system(priv, buf, len, error)) {
 		g_debug("Failed: %s", (*error)->message);
@@ -342,7 +347,9 @@ fu_plugin_vbe_coldplug(FuPlugin *plugin, FuProgress *progress, GError **error)
 		vdev = FU_VBE_DEVICE(dev);
 
 		vpriv = GET_PRIVATE(vdev);
-		vpriv->vbe_method = strdup(meth->vbe_method);
+		vpriv->vbe_method = g_strdup(meth->vbe_method);
+		vpriv->fdt = priv->fdt;
+		vpriv->node = meth->node;
 
 		fu_device_set_id(dev, meth->vbe_method);
 

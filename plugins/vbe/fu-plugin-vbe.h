@@ -27,4 +27,7 @@ fu_vbe_device_get_method(FuVbeDevice *self);
 const void *
 fu_vbe_device_get_fdt(FuVbeDevice *self);
 
+int
+fu_vbe_device_get_node(FuVbeDevice *self);
+
 typedef FuDevice *(*vbe_device_new_func)(FuContext *ctx);

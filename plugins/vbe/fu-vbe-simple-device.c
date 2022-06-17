@@ -48,9 +48,6 @@ struct vbe_simple_state {
  * struct _FuVbeSimpleDevice - Information for the 'simple' VBE device
  *
  * @parent_instance: FuVbeDevice parent device
- * @vbe_method: Name of method ("simple")
- * @fdt: Device tree containing the info
- * @node: Node containing the info for this device
  * @compat: Compatible property for this model. This is a device tree string
  * list, i.e. a contiguous list of NULL-terminated strings
  * @compat_len: Length of @compat in bytes
@@ -69,7 +66,6 @@ struct vbe_simple_state {
  */
 struct _FuVbeSimpleDevice {
 	FuVbeDevice parent_instance;
-	gint node;
 	const gchar *compat;
 	gint compat_len;
 	const gchar *storage;
@@ -157,14 +153,16 @@ fu_vbe_simple_device_probe(FuDevice *self, GError **error)
 	const void *fdt;
 	const char *end;
 	gint devnum, len;
+	int node;
 
 	vdev = FU_VBE_DEVICE(self);
 	g_return_val_if_fail(FU_IS_VBE_DEVICE(self), FALSE);
 
 	fdt = fu_vbe_device_get_fdt(vdev);
-	g_debug("Probing device %s, fdt=%p", fu_vbe_device_get_method(vdev), fdt);
+	node = fu_vbe_device_get_node(vdev);
+	g_debug("Probing device %s, fdt=%p, node=%d", fu_vbe_device_get_method(vdev), fdt, node);
 	dev->compat = fdt_getprop(fdt, 0, "compatible", &dev->compat_len);
-	dev->storage = fdt_getprop(fdt, dev->node, "storage", &len);
+	dev->storage = fdt_getprop(fdt, node, "storage", &len);
 	if (!dev->storage) {
 		g_set_error(error,
 			    FWUPD_ERROR,
@@ -209,8 +207,8 @@ fu_vbe_simple_device_probe(FuDevice *self, GError **error)
 			return FALSE;
 		}
 	}
-	dev->area_start = fdt_get_u32(fdt, dev->node, "area-start");
-	dev->area_size = fdt_get_u32(fdt, dev->node, "area-size");
+	dev->area_start = fdt_get_u32(fdt, node, "area-start");
+	dev->area_size = fdt_get_u32(fdt, node, "area-size");
 	if (dev->area_start < 0 || dev->area_size < 0) {
 		g_set_error(error,
 			    FWUPD_ERROR,
@@ -225,7 +223,7 @@ fu_vbe_simple_device_probe(FuDevice *self, GError **error)
 	 * We allow the skip offset to skip everything, which could be useful
 	 * for testing
 	 */
-	dev->skip_offset = fdt_get_u32(fdt, dev->node, "skip-offset");
+	dev->skip_offset = fdt_get_u32(fdt, node, "skip-offset");
 	if (dev->skip_offset > dev->area_size) {
 		g_set_error(error,
 			    FWUPD_ERROR,
@@ -621,7 +619,7 @@ fu_vbe_simple_device_upload(FuDevice *device, FuProgress *progress, GError **err
 	off_t offset;
 	gint ret;
 
-	g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "upload");
+	g_debug("upload");
 
 	/* notify UI */
 	fu_progress_set_id(progress, G_STRLOC);
@@ -650,7 +648,7 @@ fu_vbe_simple_device_upload(FuDevice *device, FuProgress *progress, GError **err
 		toread = blksize;
 		if ((off_t)toread + offset > dev->area_size)
 			toread = dev->area_size - offset;
-		g_log(G_LOG_DOMAIN, G_LOG_LEVEL_INFO, "read %zx", toread);
+		g_debug("read %zx", toread);
 		ret = read(dev->fd, buf, toread);
 		if (ret < 0) {
 			g_set_error(error,
