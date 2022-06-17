@@ -72,6 +72,44 @@ struct FuVbeMethod {
 	const struct VbeDriver *driver;
 };
 
+/* G_OBJECT properties associated with the plugin */
+enum { PROP_0, PROP_VBE_METHOD, PROP_VBE_FDT, PROP_VBE_NODE, PROP_LAST };
+
+/**
+ * struct _FuVbeDevice - Information for a VBE device
+ *
+ * @parent_instance: FuDevice parent device
+ * @vbe_method: Name of method ("simple")
+ * @fdt: Device tree containing the info
+ * @node: Node containing the info for this device
+ * @compat: Compatible property for this model. This is a device tree string
+ * list, i.e. a contiguous list of NULL-terminated strings
+ * @compat_len: Length of @compat in bytes
+ * @storage: Storage device name (e.g. "mmc1")
+ * @devname: Device name (e.g. /dev/mmcblk1)
+ * @area_start: Start offset of area for firmware
+ * @area_size: Size of firmware area
+ * @skip_offset: This allows an initial part of the image to be skipped when
+ * writing. This means that the first part of the image is ignored, with just
+ * the latter part being written. For example, if this is 0x200 then the first
+ * 512 bytes of the image (which must be present in the image) are skipped and
+ * the bytes after that are written to the store offset.
+ * @fd: File descriptor, if the device is open
+ * @vbe_fname: Filename of the VBE state file
+ * @state: State of this update method
+ */
+typedef struct {
+	gchar *vbe_method;
+	gchar *fdt;
+	gint node;
+	const gchar *compat;
+	gint compat_len;
+	const gchar *storage;
+} FuVbeDevicePrivate;
+
+G_DEFINE_TYPE_WITH_PRIVATE(FuVbeDevice, fu_vbe_device, FU_TYPE_DEVICE)
+#define GET_PRIVATE(o) (fu_vbe_device_get_instance_private(o))
+
 static void
 fu_plugin_vbe_init(FuPlugin *plugin)
 {
@@ -84,6 +122,24 @@ fu_plugin_vbe_destroy(FuPlugin *plugin)
 	FuPluginData *priv = fu_plugin_get_data(plugin);
 	if (priv->vbe_dir)
 		g_free(priv->vbe_dir);
+}
+
+const gchar *
+fu_vbe_device_get_method(FuVbeDevice *self)
+{
+	FuVbeDevicePrivate *priv = GET_PRIVATE(self);
+
+	g_return_val_if_fail(FU_IS_VBE_DEVICE(self), NULL);
+	return priv->vbe_method;
+}
+
+const void *
+fu_vbe_device_get_fdt(FuVbeDevice *self)
+{
+	FuVbeDevicePrivate *priv = GET_PRIVATE(self);
+
+	g_return_val_if_fail(FU_IS_VBE_DEVICE(self), NULL);
+	return priv->fdt;
 }
 
 /**
@@ -275,12 +331,19 @@ fu_plugin_vbe_coldplug(FuPlugin *plugin, FuProgress *progress, GError **error)
 	/* create a driver for each method */
 	for (entry = g_list_first(priv->methods); entry; entry = g_list_next(entry)) {
 		const struct VbeDriver *driver;
-		g_autoptr(FuDevice) dev;
+		g_autoptr(FuVbeDevice) vdev;
+		FuDevice *dev;
 		const gchar *version;
+		FuVbeDevicePrivate *vpriv;
 
 		meth = entry->data;
 		driver = meth->driver;
-		dev = driver->new_func(ctx, meth->vbe_method, priv->fdt, meth->node);
+		dev = driver->new_func(ctx);
+		vdev = FU_VBE_DEVICE(dev);
+
+		vpriv = GET_PRIVATE(vdev);
+		vpriv->vbe_method = strdup(meth->vbe_method);
+
 		fu_device_set_id(dev, meth->vbe_method);
 
 		fu_device_set_name(dev, driver->name);
@@ -314,4 +377,152 @@ fu_plugin_init_vfuncs(FuPluginVfuncs *vfuncs)
 	vfuncs->destroy = fu_plugin_vbe_destroy;
 	vfuncs->startup = fu_plugin_vbe_startup;
 	vfuncs->coldplug = fu_plugin_vbe_coldplug;
+}
+
+static void
+fu_vbe_device_init(FuVbeDevice *self)
+{
+	g_autofree gchar *state_dir = NULL;
+	g_autofree gchar *vbe_fname = NULL;
+
+	fu_device_add_flag(FU_DEVICE(self),
+			   FWUPD_DEVICE_FLAG_INTERNAL | FWUPD_DEVICE_FLAG_UPDATABLE |
+			       FWUPD_DEVICE_FLAG_NEEDS_REBOOT | FWUPD_DEVICE_FLAG_CAN_VERIFY |
+			       FWUPD_DEVICE_FLAG_CAN_VERIFY_IMAGE);
+
+	fu_device_add_protocol(FU_DEVICE(self), "org.vbe");
+	fu_device_add_internal_flag(FU_DEVICE(self), FU_DEVICE_INTERNAL_FLAG_ENSURE_SEMVER);
+	fu_device_add_internal_flag(FU_DEVICE(self), FU_DEVICE_INTERNAL_FLAG_MD_SET_SIGNED);
+	fu_device_set_physical_id(FU_DEVICE(self), "vbe");
+	fu_device_set_version_format(FU_DEVICE(self), FWUPD_VERSION_FORMAT_PAIR);
+	fu_device_add_icon(FU_DEVICE(self), "computer");
+}
+
+FuDevice *
+fu_vbe_device_new(FuContext *ctx, const gchar *vbe_method, const gchar *fdt, gint node)
+{
+	return FU_DEVICE(g_object_new(FU_TYPE_VBE_DEVICE,
+				      "context",
+				      ctx,
+				      "vbe_method",
+				      vbe_method,
+				      "fdt",
+				      fdt,
+				      "node",
+				      node,
+				      NULL));
+}
+
+static void
+fu_vbe_device_constructed(GObject *obj)
+{
+	FuVbeSimpleDevice *self = FU_VBE_SIMPLE_DEVICE(obj);
+	fu_device_add_instance_id(FU_DEVICE(self), "main-system-firmware");
+}
+
+static void
+fu_vbe_device_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec)
+{
+	FuVbeDevice *self = FU_VBE_DEVICE(object);
+	FuVbeDevicePrivate *priv = GET_PRIVATE(self);
+	switch (prop_id) {
+	case PROP_VBE_METHOD:
+		g_value_set_string(value, priv->vbe_method);
+		break;
+	case PROP_VBE_FDT:
+		g_value_set_pointer(value, priv->fdt);
+		break;
+	case PROP_VBE_NODE:
+		g_value_set_int(value, priv->node);
+		break;
+	default:
+		G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+		break;
+	}
+}
+
+static void
+fu_vbe_device_set_property(GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec)
+{
+	FuVbeDevice *self = FU_VBE_DEVICE(object);
+	FuVbeDevicePrivate *priv = GET_PRIVATE(self);
+	switch (prop_id) {
+	case PROP_VBE_METHOD:
+		if (priv->vbe_method)
+			g_free(priv->vbe_method);
+		priv->vbe_method = g_strdup(g_value_get_string(value));
+		break;
+	case PROP_VBE_FDT:
+		priv->fdt = g_value_get_pointer(value);
+		break;
+	case PROP_VBE_NODE:
+		priv->node = g_value_get_int(value);
+		break;
+	default:
+		G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+		break;
+	}
+}
+
+static void
+fu_vbe_device_finalize(GObject *object)
+{
+	FuVbeDevice *self = FU_VBE_DEVICE(object);
+	FuVbeDevicePrivate *priv = GET_PRIVATE(self);
+	if (priv->vbe_method)
+		g_free(priv->vbe_method);
+
+	G_OBJECT_CLASS(fu_vbe_device_parent_class)->finalize(object);
+}
+
+static void
+fu_vbe_device_class_init(FuVbeDeviceClass *klass)
+{
+	GParamSpec *pspec;
+	GObjectClass *klass_device = G_OBJECT_CLASS(klass);
+
+	klass_device->get_property = fu_vbe_device_get_property;
+	klass_device->set_property = fu_vbe_device_set_property;
+
+	/**
+	 * FuVbeSimpleDevice:vbe_method:
+	 *
+	 * The VBE method being used (e.g. "mmc-simple").
+	 */
+	pspec =
+	    g_param_spec_string("vbe-method",
+				NULL,
+				"Method used to update firmware (e.g. 'mmc-simple'",
+				NULL,
+				G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_NAME);
+	g_object_class_install_property(klass_device, PROP_VBE_METHOD, pspec);
+
+	/**
+	 * FuVbeSimpleDevice:fdt:
+	 *
+	 * The device tree blob containing the method parameters
+	 */
+	pspec =
+	    g_param_spec_pointer("fdt",
+				 NULL,
+				 "Device tree blob containing method parameters",
+				 G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_NAME);
+	g_object_class_install_property(klass_device, PROP_VBE_FDT, pspec);
+
+	/**
+	 * FuVbeSimpleDevice:vbe_method:
+	 *
+	 * The VBE method being used (e.g. "mmc-simple").
+	 */
+	pspec = g_param_spec_int("node",
+				 NULL,
+				 "Node offset within the device tree containing method parameters'",
+				 -1,
+				 INT_MAX,
+				 -1,
+				 G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_NAME);
+	g_object_class_install_property(klass_device, PROP_VBE_NODE, pspec);
+
+	klass_device->constructed = fu_vbe_device_constructed;
+	klass_device->finalize = fu_vbe_device_finalize;
 }

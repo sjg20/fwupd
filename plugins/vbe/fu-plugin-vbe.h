@@ -11,10 +11,20 @@
 
 #include <fwupdplugin.h>
 
-/* G_OBJECT properties associated with the plugin */
-enum { PROP_0, PROP_VBE_METHOD, PROP_VBE_FDT, PROP_VBE_NODE, PROP_LAST };
+#define FU_TYPE_VBE_DEVICE (fu_vbe_device_get_type())
+G_DECLARE_DERIVABLE_TYPE(FuVbeDevice, fu_vbe_device, FU, VBE_DEVICE, FuDevice)
 
-typedef FuDevice *(*vbe_device_new_func)(FuContext *ctx,
-					 const gchar *vbe_method,
-					 const gchar *fdt,
-					 int node);
+struct _FuVbeDeviceClass {
+	FuDeviceClass parent_class;
+};
+
+FuDevice *
+fu_vbe_device_new(FuContext *ctx, const gchar *vbe_method, const gchar *fdt, int node);
+
+const gchar *
+fu_vbe_device_get_method(FuVbeDevice *self);
+
+const void *
+fu_vbe_device_get_fdt(FuVbeDevice *self);
+
+typedef FuDevice *(*vbe_device_new_func)(FuContext *ctx);

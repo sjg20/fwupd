@@ -24,7 +24,8 @@
 #include "fu-plugin-vbe.h"
 #include "fu-vbe-simple-device.h"
 
-#define DEBUG 0
+/* G_OBJECT properties associated with the plugin */
+enum { PROP_0, PROP_DEVNAME, PROP_AREA_START, PROP_AREA_SIZE, PROP_LAST };
 
 /**
  * struct vbe_simple_state - current state of this VBE method
@@ -37,17 +38,16 @@
  * @status: State of the last update (always "completed"), NULL if none
  */
 struct vbe_simple_state {
-	struct last_update {
-		time_t finish_time;
-		gchar *cur_version;
-		gchar *status;
-	} last;
+	/* information about the last update */
+	time_t finish_time;
+	gchar *cur_version;
+	gchar *status;
 };
 
 /**
  * struct _FuVbeSimpleDevice - Information for the 'simple' VBE device
  *
- * @parent_instance: FuDevice parent device
+ * @parent_instance: FuVbeDevice parent device
  * @vbe_method: Name of method ("simple")
  * @fdt: Device tree containing the info
  * @node: Node containing the info for this device
@@ -68,14 +68,12 @@ struct vbe_simple_state {
  * @state: State of this update method
  */
 struct _FuVbeSimpleDevice {
-	FuDevice parent_instance;
-	gchar *vbe_method;
-	gchar *fdt;
+	FuVbeDevice parent_instance;
 	gint node;
 	const gchar *compat;
 	gint compat_len;
 	const gchar *storage;
-	const gchar *devname;
+	gchar *devname;
 	off_t area_start;
 	off_t area_size;
 	gint skip_offset;
@@ -84,7 +82,7 @@ struct _FuVbeSimpleDevice {
 	struct vbe_simple_state state;
 };
 
-G_DEFINE_TYPE(FuVbeSimpleDevice, fu_vbe_simple_device, FU_TYPE_DEVICE)
+G_DEFINE_TYPE(FuVbeSimpleDevice, fu_vbe_simple_device, FU_TYPE_VBE_DEVICE)
 
 static gint
 trailing_strtoln_end(const gchar *str, const gchar *end, gchar const **endp)
@@ -152,15 +150,21 @@ fdt_get_u64(const gchar *fdt, gint node, const gchar *prop_name)
 }
 
 static gboolean
-fu_vbe_simple_device_probe(FuDevice *device, GError **error)
+fu_vbe_simple_device_probe(FuDevice *self, GError **error)
 {
-	struct _FuVbeSimpleDevice *dev = FU_VBE_SIMPLE_DEVICE(device);
+	struct _FuVbeSimpleDevice *dev = FU_VBE_SIMPLE_DEVICE(self);
+	FuVbeDevice *vdev;
+	const void *fdt;
 	const char *end;
 	gint devnum, len;
 
-	g_debug("Probing device %s", dev->vbe_method);
-	dev->compat = fdt_getprop(dev->fdt, 0, "compatible", &dev->compat_len);
-	dev->storage = fdt_getprop(dev->fdt, dev->node, "storage", &len);
+	vdev = FU_VBE_DEVICE(self);
+	g_return_val_if_fail(FU_IS_VBE_DEVICE(self), FALSE);
+
+	fdt = fu_vbe_device_get_fdt(vdev);
+	g_debug("Probing device %s, fdt=%p", fu_vbe_device_get_method(vdev), fdt);
+	dev->compat = fdt_getprop(fdt, 0, "compatible", &dev->compat_len);
+	dev->storage = fdt_getprop(fdt, dev->node, "storage", &len);
 	if (!dev->storage) {
 		g_set_error(error,
 			    FWUPD_ERROR,
@@ -205,8 +209,8 @@ fu_vbe_simple_device_probe(FuDevice *device, GError **error)
 			return FALSE;
 		}
 	}
-	dev->area_start = fdt_get_u32(dev->fdt, dev->node, "area-start");
-	dev->area_size = fdt_get_u32(dev->fdt, dev->node, "area-size");
+	dev->area_start = fdt_get_u32(fdt, dev->node, "area-start");
+	dev->area_size = fdt_get_u32(fdt, dev->node, "area-size");
 	if (dev->area_start < 0 || dev->area_size < 0) {
 		g_set_error(error,
 			    FWUPD_ERROR,
@@ -221,7 +225,7 @@ fu_vbe_simple_device_probe(FuDevice *device, GError **error)
 	 * We allow the skip offset to skip everything, which could be useful
 	 * for testing
 	 */
-	dev->skip_offset = fdt_get_u32(dev->fdt, dev->node, "skip-offset");
+	dev->skip_offset = fdt_get_u32(fdt, dev->node, "skip-offset");
 	if (dev->skip_offset > dev->area_size) {
 		g_set_error(error,
 			    FWUPD_ERROR,
@@ -262,13 +266,12 @@ fu_vbe_simple_device_open(FuDevice *device, GError **error)
 	}
 
 	if (g_file_get_contents(dev->vbe_fname, &buf, &len, NULL)) {
-		struct last_update *last = &state->last;
 		gint node;
 
 		node = fdt_subnode_offset(buf, 0, "last-update");
-		last->finish_time = fdt_get_u64(buf, node, "finish-time");
-		last->cur_version = g_strdup(fdt_getprop(buf, node, "cur-version", NULL));
-		last->status = g_strdup(fdt_getprop(buf, node, "status", NULL));
+		state->finish_time = fdt_get_u64(buf, node, "finish-time");
+		state->cur_version = g_strdup(fdt_getprop(buf, node, "cur-version", NULL));
+		state->status = g_strdup(fdt_getprop(buf, node, "status", NULL));
 	} else {
 		g_debug("No state file '%s' - will create", dev->vbe_fname);
 		memset(state, '\0', sizeof(*state));
@@ -282,7 +285,6 @@ fu_vbe_simple_device_close(FuDevice *device, GError **error)
 {
 	struct _FuVbeSimpleDevice *dev = FU_VBE_SIMPLE_DEVICE(device);
 	struct vbe_simple_state *state = &dev->state;
-	struct last_update *last = &state->last;
 	g_autofree gchar *buf = NULL;
 	const gint size = 1024;
 
@@ -298,11 +300,11 @@ fu_vbe_simple_device_close(FuDevice *device, GError **error)
 	fdt_property_string(buf, "vbe,driver", "fwupd,simple");
 
 	fdt_begin_node(buf, "last-update");
-	fdt_property_u64(buf, "finish-time", last->finish_time);
-	if (last->cur_version)
-		fdt_property_string(buf, "cur-version", last->cur_version);
-	if (last->status)
-		fdt_property_string(buf, "status", last->status);
+	fdt_property_u64(buf, "finish-time", state->finish_time);
+	if (state->cur_version)
+		fdt_property_string(buf, "cur-version", state->cur_version);
+	if (state->status)
+		fdt_property_string(buf, "status", state->status);
 	fdt_end_node(buf);
 
 	fdt_finish(buf);
@@ -325,10 +327,11 @@ fu_vbe_simple_device_close(FuDevice *device, GError **error)
 		return FALSE;
 	}
 
-	g_free(last->cur_version);
-	last->cur_version = NULL;
-	g_free(last->status);
-	last->status = NULL;
+	g_free(state->cur_version);
+	state->cur_version = NULL;
+	g_free(state->status);
+	state->status = NULL;
+
 	return TRUE;
 }
 
@@ -507,7 +510,7 @@ process_fit(struct fit_info *fit,
 	    FuProgress *progress,
 	    GError **error)
 {
-	struct last_update *last = &dev->state.last;
+	struct vbe_simple_state *state = &dev->state;
 	gint best_prio = INT_MAX;
 	const gchar *cfg_name;
 	const gchar *p, *end;
@@ -560,11 +563,11 @@ process_fit(struct fit_info *fit,
 	if (!process_config(fit, best_cfg, dev, progress, error))
 		return FALSE;
 
-	g_free(last->cur_version);
-	g_free(last->status);
-	last->finish_time = time(NULL);
-	last->cur_version = g_strdup(version);
-	last->status = g_strdup("completed");
+	g_free(state->cur_version);
+	g_free(state->status);
+	state->finish_time = time(NULL);
+	state->cur_version = g_strdup(version);
+	state->status = g_strdup("completed");
 
 	return TRUE;
 }
@@ -670,14 +673,6 @@ fu_vbe_simple_device_upload(FuDevice *device, FuProgress *progress, GError **err
 }
 
 static void
-fu_vbe_simple_device_set_progress(FuDevice *self, FuProgress *progress)
-{
-	fu_progress_set_id(progress, G_STRLOC);
-	fu_progress_add_flag(progress, FU_PROGRESS_FLAG_GUESSED);
-	fu_progress_add_step(progress, FWUPD_STATUS_DEVICE_WRITE, 100, "write");
-}
-
-static void
 fu_vbe_simple_device_init(FuVbeSimpleDevice *self)
 {
 	g_autofree gchar *state_dir = NULL;
@@ -701,17 +696,11 @@ fu_vbe_simple_device_init(FuVbeSimpleDevice *self)
 }
 
 FuDevice *
-fu_vbe_simple_device_new(FuContext *ctx, const gchar *vbe_method, const gchar *fdt, gint node)
+fu_vbe_simple_device_new(FuContext *ctx)
 {
 	return FU_DEVICE(g_object_new(FU_TYPE_VBE_SIMPLE_DEVICE,
 				      "context",
 				      ctx,
-				      "vbe_method",
-				      vbe_method,
-				      "fdt",
-				      fdt,
-				      "node",
-				      node,
 				      NULL));
 }
 
@@ -727,14 +716,14 @@ fu_vbe_simple_device_get_property(GObject *object, guint prop_id, GValue *value,
 {
 	FuVbeSimpleDevice *self = FU_VBE_SIMPLE_DEVICE(object);
 	switch (prop_id) {
-	case PROP_VBE_METHOD:
-		g_value_set_string(value, self->vbe_method);
+	case PROP_DEVNAME:
+		g_value_set_string(value, self->devname);
 		break;
-	case PROP_VBE_FDT:
-		g_value_set_pointer(value, self->fdt);
+	case PROP_AREA_START:
+		g_value_set_int64(value, self->area_start);
 		break;
-	case PROP_VBE_NODE:
-		g_value_set_int(value, self->node);
+	case PROP_AREA_SIZE:
+		g_value_set_int64(value, self->area_size);
 		break;
 	default:
 		G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -750,16 +739,16 @@ fu_vbe_simple_device_set_property(GObject *object,
 {
 	FuVbeSimpleDevice *self = FU_VBE_SIMPLE_DEVICE(object);
 	switch (prop_id) {
-	case PROP_VBE_METHOD:
-		if (self->vbe_method)
-			g_free(self->vbe_method);
-		self->vbe_method = g_strdup(g_value_get_string(value));
+	case PROP_DEVNAME:
+		if (self->devname)
+			g_free(self->devname);
+		self->devname = g_strdup(g_value_get_string(value));
 		break;
-	case PROP_VBE_FDT:
-		self->fdt = g_value_get_pointer(value);
+	case PROP_AREA_START:
+		self->area_start = g_value_get_int64(value);
 		break;
-	case PROP_VBE_NODE:
-		self->node = g_value_get_int(value);
+	case PROP_AREA_SIZE:
+		self->area_size = g_value_get_int64(value);
 		break;
 	default:
 		G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -771,8 +760,8 @@ static void
 fu_vbe_simple_device_finalize(GObject *object)
 {
 	FuVbeSimpleDevice *self = FU_VBE_SIMPLE_DEVICE(object);
-	if (self->vbe_method)
-		g_free(self->vbe_method);
+	if (self->devname)
+		g_free(self->devname);
 
 	G_OBJECT_CLASS(fu_vbe_simple_device_parent_class)->finalize(object);
 }
@@ -781,57 +770,59 @@ static void
 fu_vbe_simple_device_class_init(FuVbeSimpleDeviceClass *klass)
 {
 	GParamSpec *pspec;
-	GObjectClass *klass_device = G_OBJECT_CLASS(klass);
-	FuDeviceClass *object_class = FU_DEVICE_CLASS(klass);
+	GObjectClass *object_class = G_OBJECT_CLASS(klass);
+	FuDeviceClass *klass_device = FU_DEVICE_CLASS(klass);
 
-	klass_device->get_property = fu_vbe_simple_device_get_property;
-	klass_device->set_property = fu_vbe_simple_device_set_property;
+	object_class->get_property = fu_vbe_simple_device_get_property;
+	object_class->set_property = fu_vbe_simple_device_set_property;
 
 	/**
-	 * FuVbeSimpleDevice:vbe_method:
+	 * FuVbeSimpleDevice:devname:
 	 *
-	 * The VBE method being used (e.g. "mmc-simple").
+	 * device that contains firmware (e.g. '/dev/mmcblk1')
 	 */
 	pspec =
-	    g_param_spec_string("vbe-method",
+	    g_param_spec_string("devname",
 				NULL,
-				"Method used to update firmware (e.g. 'mmc-simple'",
+				"Device that contains firmware (e.g. '/dev/mmcblk1')",
 				NULL,
 				G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_NAME);
-	g_object_class_install_property(klass_device, PROP_VBE_METHOD, pspec);
-
+	g_object_class_install_property(object_class, PROP_DEVNAME, pspec);
 	/**
-	 * FuVbeSimpleDevice:fdt:
+	 * FuVbeSimpleDevice:area-start:
 	 *
-	 * The device tree blob containing the method parameters
+	 * start offset of area for firmware
 	 */
 	pspec =
-	    g_param_spec_pointer("fdt",
-				 NULL,
-				 "Device tree blob containing method parameters",
-				 G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_NAME);
-	g_object_class_install_property(klass_device, PROP_VBE_FDT, pspec);
+	    g_param_spec_int64("area-start",
+			       NULL,
+			       "Start offset of area for firmware",
+			       -1,
+			       INT_MAX,
+			       -1,
+			       G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_NAME);
+	g_object_class_install_property(object_class, PROP_AREA_START, pspec);
 
 	/**
-	 * FuVbeSimpleDevice:vbe_method:
+	 * FuVbeSimpleDevice:area-size:
 	 *
-	 * The VBE method being used (e.g. "mmc-simple").
+	 * size of firmware area
 	 */
-	pspec = g_param_spec_int("node",
-				 NULL,
-				 "Node offset within the device tree containing method parameters'",
-				 -1,
-				 INT_MAX,
-				 -1,
-				 G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_NAME);
-	g_object_class_install_property(klass_device, PROP_VBE_NODE, pspec);
+	pspec =
+	    g_param_spec_int64("area-size",
+			       NULL,
+			       "Size of firmware area",
+			       -1,
+			       INT_MAX,
+			       -1,
+			       G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_NAME);
+	g_object_class_install_property(object_class, PROP_AREA_SIZE, pspec);
 
-	klass_device->constructed = fu_vbe_simple_device_constructed;
-	klass_device->finalize = fu_vbe_simple_device_finalize;
-	object_class->probe = fu_vbe_simple_device_probe;
-	object_class->open = fu_vbe_simple_device_open;
-	object_class->close = fu_vbe_simple_device_close;
-	object_class->set_progress = fu_vbe_simple_device_set_progress;
-	object_class->write_firmware = fu_vbe_simple_device_write_firmware;
-	object_class->dump_firmware = fu_vbe_simple_device_upload;
+	object_class->constructed = fu_vbe_simple_device_constructed;
+	object_class->finalize = fu_vbe_simple_device_finalize;
+	klass_device->probe = fu_vbe_simple_device_probe;
+	klass_device->open = fu_vbe_simple_device_open;
+	klass_device->close = fu_vbe_simple_device_close;
+	klass_device->write_firmware = fu_vbe_simple_device_write_firmware;
+	klass_device->dump_firmware = fu_vbe_simple_device_upload;
 }

@@ -12,7 +12,7 @@
 #include <fwupdplugin.h>
 
 #define FU_TYPE_VBE_SIMPLE_DEVICE (fu_vbe_simple_device_get_type())
-G_DECLARE_FINAL_TYPE(FuVbeSimpleDevice, fu_vbe_simple_device, FU, VBE_SIMPLE_DEVICE, FuDevice)
+G_DECLARE_FINAL_TYPE(FuVbeSimpleDevice, fu_vbe_simple_device, FU, VBE_SIMPLE_DEVICE, FuVbeDevice)
 
 FuDevice *
-fu_vbe_simple_device_new(FuContext *ctx, const gchar *vbe_method, const gchar *fdt, int node);
+fu_vbe_simple_device_new(FuContext *ctx);
