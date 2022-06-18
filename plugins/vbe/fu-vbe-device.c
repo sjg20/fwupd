@@ -72,6 +72,14 @@ fu_vbe_device_get_fdt(FuVbeDevice *self)
 	return priv->fdt;
 }
 
+/**
+ * fu_vbe_device_get_node() - Get the FDT node for a device
+ *
+ * This node of the FDT contains all the information relating to the device
+ *
+ * @self: Device to check
+ * @return node offset
+ */
 gint
 fu_vbe_device_get_node(FuVbeDevice *self)
 {
@@ -79,6 +87,21 @@ fu_vbe_device_get_node(FuVbeDevice *self)
 
 	g_return_val_if_fail(FU_IS_VBE_DEVICE(self), -1);
 	return priv->node;
+}
+
+/**
+ * fu_vbe_device_get_compat_list() - Get the list of compatible strings for a device
+ *
+ * @self: Device to check
+ * @return list of compatible strings
+ */
+GList *
+fu_vbe_device_get_compat_list(FuVbeDevice *self)
+{
+	FuVbeDevicePrivate *priv = GET_PRIVATE(self);
+
+	g_return_val_if_fail(FU_IS_VBE_DEVICE(self), NULL);
+	return priv->compat_list;
 }
 
 static void
@@ -113,9 +136,7 @@ fu_vbe_device_probe(FuDevice *self, GError **error)
 	priv = GET_PRIVATE(dev);
 
 	/* Get a list of compatible strings */
-	for (i = 0;
-	     compat = fdt_stringlist_get(priv->fdt, priv->node, "compatible", i, &len), compat;
-	     i++) {
+	for (i = 0; compat = fdt_stringlist_get(priv->fdt, 0, "compatible", i, &len), compat; i++) {
 		clist = g_list_append(clist, g_strdup(compat));
 	}
 	g_list_free_full(priv->compat_list, g_free);

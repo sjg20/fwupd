@@ -33,3 +33,6 @@ fu_vbe_device_get_fdt(FuVbeDevice *self);
 
 gint
 fu_vbe_device_get_node(FuVbeDevice *self);
+
+GList *
+fu_vbe_device_get_compat_list(FuVbeDevice *self);

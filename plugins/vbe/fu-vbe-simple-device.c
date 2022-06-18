@@ -51,9 +51,6 @@ struct vbe_simple_state {
  * struct _FuVbeSimpleDevice - Information for the 'simple' VBE device
  *
  * @parent_instance: FuVbeDevice parent device
- * @compat: Compatible property for this model. This is a device tree string
- * list, i.e. a contiguous list of NULL-terminated strings
- * @compat_len: Length of @compat in bytes
  * @storage: Storage device name (e.g. "mmc1")
  * @devname: Device name (e.g. /dev/mmcblk1)
  * @area_start: Start offset of area for firmware
@@ -69,8 +66,6 @@ struct vbe_simple_state {
  */
 struct _FuVbeSimpleDevice {
 	FuVbeDevice parent_instance;
-	const gchar *compat;
-	gint compat_len;
 	const gchar *storage;
 	gchar *devname;
 	off_t area_start;
@@ -167,7 +162,6 @@ fu_vbe_simple_device_probe(FuDevice *self, GError **error)
 	fdt = fu_vbe_device_get_fdt(vdev);
 	node = fu_vbe_device_get_node(vdev);
 	g_debug("Probing device %s, fdt=%p, node=%d", fu_vbe_device_get_method(vdev), fdt, node);
-	dev->compat = fdt_getprop(fdt, 0, "compatible", &dev->compat_len);
 	dev->storage = fdt_getprop(fdt, node, "storage", &len);
 	if (!dev->storage) {
 		g_set_error(error,
@@ -349,27 +343,26 @@ fu_vbe_simple_device_close(FuDevice *device, GError **error)
  * @return 0 if the given cfg matches, -ve if not
  */
 static gint
-check_config_match(struct fit_info *fit,
-		   gint cfg,
-		   const void *method_compat,
-		   gint method_compat_len)
+check_config_match(struct fit_info *fit, gint cfg, GList *compat_list)
 {
-	const gchar *p = method_compat, *end = p + method_compat_len;
+	const GList *entry;
 	gint prio;
 
-	for (prio = 0; p < end; prio++, p += strlen(p) + 1) {
-		const gchar *compat, *q, *qend;
+	for (prio = 0, entry = g_list_first(compat_list); entry;
+	     prio++, entry = g_list_next(entry)) {
+		const gchar *compat, *p, *pend;
+		const char *cmp = entry->data;
 		gint ret, len;
 
 		compat = fdt_getprop(fit->blob, cfg, "compatible", &len);
-		g_debug("compat:");
+		g_debug("compat compare with: %s", cmp);
 		if (!compat) {
 			g_debug("   (none)");
 		} else {
-			for (q = compat, qend = compat + len; q < qend; q += strlen(q) + 1)
-				g_debug("   %s", q);
+			for (p = compat, pend = compat + len; p < pend; p += strlen(p) + 1)
+				g_debug("   %s", p);
 		}
-		ret = fdt_node_check_compatible(fit->blob, cfg, p);
+		ret = fdt_node_check_compatible(fit->blob, cfg, cmp);
 		if (!ret || ret == -FDT_ERR_NOTFOUND)
 			return prio;
 	}
@@ -512,29 +505,25 @@ process_config(struct fit_info *fit,
 static gboolean
 process_fit(struct fit_info *fit,
 	    struct _FuVbeSimpleDevice *dev,
+	    GList *compat_list,
 	    FuProgress *progress,
 	    GError **error)
 {
 	struct vbe_simple_state *state = &dev->state;
 	gint best_prio = INT_MAX;
 	const gchar *cfg_name;
-	const gchar *p, *end;
 	const gchar *version;
+	const GList *entry;
 	gint cfg_count = 0;
 	gint best_cfg = 0;
 	gint cfg;
 
 	g_debug("model: ");
-	if (!dev->compat) {
-		g_debug("   (none)");
-	} else {
-		for (p = dev->compat, end = dev->compat + dev->compat_len; p < end;
-		     p += strlen(p) + 1)
-			g_debug("   %s", p);
-	}
+	for (entry = g_list_first(compat_list); entry; entry = g_list_next(entry))
+		g_debug("   %s", (char *)entry->data);
 
 	for (cfg = fit_first_cfg(fit); cfg > 0; cfg_count++, cfg = fit_next_cfg(fit, cfg)) {
-		gint prio = check_config_match(fit, cfg, dev->compat, dev->compat_len);
+		gint prio = check_config_match(fit, cfg, compat_list);
 		g_debug("config '%s': priority=%d", fit_cfg_name(fit, cfg), prio);
 		if (prio >= 0 && (!best_cfg || prio < best_prio)) {
 			best_cfg = cfg;
@@ -587,9 +576,16 @@ fu_vbe_simple_device_write_firmware(FuDevice *device,
 	struct _FuVbeSimpleDevice *dev = FU_VBE_SIMPLE_DEVICE(device);
 	g_autoptr(GBytes) bytes = NULL;
 	struct fit_info fit;
+	GList *compat_list;
+	FuVbeDevice *vdev;
 	const guint8 *buf;
 	gsize size = 0;
 	gint ret;
+
+	vdev = FU_VBE_DEVICE(device);
+	g_return_val_if_fail(FU_IS_VBE_DEVICE(device), FALSE);
+
+	compat_list = fu_vbe_device_get_compat_list(vdev);
 
 	bytes = fu_firmware_get_bytes(firmware, error);
 	if (!bytes)
@@ -607,7 +603,7 @@ fu_vbe_simple_device_write_firmware(FuDevice *device,
 		return FALSE;
 	}
 
-	if (!process_fit(&fit, dev, progress, error))
+	if (!process_fit(&fit, dev, compat_list, progress, error))
 		return FALSE;
 	g_debug("write done");
 
