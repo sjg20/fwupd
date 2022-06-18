@@ -11,6 +11,8 @@
 
 #include <fwupdplugin.h>
 
+#include <libfdt.h>
+
 #include "fu-vbe-device.h"
 
 /* G_OBJECT properties associated with the plugin */
@@ -23,17 +25,14 @@ enum { PROP_0, PROP_VBE_METHOD, PROP_VBE_FDT, PROP_VBE_NODE, PROP_LAST };
  * @vbe_method: Name of method ("simple")
  * @fdt: Device tree containing the info
  * @node: Node containing the info for this device
- * @compat: Compatible property for this model. This is a device tree string
- * list, i.e. a contiguous list of NULL-terminated strings
- * @compat_len: Length of @compat in bytes
+ * @compat_list: List of compatible properties for this model, if any
  * @storage: Storage device name (e.g. "mmc1")
  */
 typedef struct {
 	gchar *vbe_method;
 	gchar *fdt;
 	gint node;
-	const gchar *compat;
-	gint compat_len;
+	GList *compat_list;
 	const gchar *storage;
 } FuVbeDevicePrivate;
 
@@ -99,6 +98,30 @@ fu_vbe_device_init(FuVbeDevice *self)
 	fu_device_set_physical_id(FU_DEVICE(self), "vbe");
 	fu_device_set_version_format(FU_DEVICE(self), FWUPD_VERSION_FORMAT_PAIR);
 	fu_device_add_icon(FU_DEVICE(self), "computer");
+}
+
+static gboolean
+fu_vbe_device_probe(FuDevice *self, GError **error)
+{
+	FuVbeDevicePrivate *priv;
+	FuVbeDevice *dev = FU_VBE_DEVICE(self);
+	const gchar *compat;
+	GList *clist = NULL;
+	gint len, i;
+
+	g_return_val_if_fail(FU_IS_VBE_DEVICE(dev), FALSE);
+	priv = GET_PRIVATE(dev);
+
+	/* Get a list of compatible strings */
+	for (i = 0;
+	     compat = fdt_stringlist_get(priv->fdt, priv->node, "compatible", i, &len), compat;
+	     i++) {
+		clist = g_list_append(clist, g_strdup(compat));
+	}
+	g_list_free_full(priv->compat_list, g_free);
+	priv->compat_list = clist;
+
+	return TRUE;
 }
 
 FuDevice *
@@ -182,10 +205,11 @@ static void
 fu_vbe_device_class_init(FuVbeDeviceClass *klass)
 {
 	GParamSpec *pspec;
-	GObjectClass *klass_device = G_OBJECT_CLASS(klass);
+	GObjectClass *object_class = G_OBJECT_CLASS(klass);
+	FuDeviceClass *klass_device = FU_DEVICE_CLASS(klass);
 
-	klass_device->get_property = fu_vbe_device_get_property;
-	klass_device->set_property = fu_vbe_device_set_property;
+	object_class->get_property = fu_vbe_device_get_property;
+	object_class->set_property = fu_vbe_device_set_property;
 
 	/**
 	 * FuVbeDevice:vbe_method:
@@ -198,7 +222,7 @@ fu_vbe_device_class_init(FuVbeDeviceClass *klass)
 				"Method used to update firmware (e.g. 'mmc-simple'",
 				NULL,
 				G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_NAME);
-	g_object_class_install_property(klass_device, PROP_VBE_METHOD, pspec);
+	g_object_class_install_property(object_class, PROP_VBE_METHOD, pspec);
 
 	/**
 	 * FuVbeDevice:fdt:
@@ -210,7 +234,7 @@ fu_vbe_device_class_init(FuVbeDeviceClass *klass)
 				 NULL,
 				 "Device tree blob containing method parameters",
 				 G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_NAME);
-	g_object_class_install_property(klass_device, PROP_VBE_FDT, pspec);
+	g_object_class_install_property(object_class, PROP_VBE_FDT, pspec);
 
 	/**
 	 * FuVbeDevice:vbe_method:
@@ -224,8 +248,9 @@ fu_vbe_device_class_init(FuVbeDeviceClass *klass)
 				 INT_MAX,
 				 -1,
 				 G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_NAME);
-	g_object_class_install_property(klass_device, PROP_VBE_NODE, pspec);
+	g_object_class_install_property(object_class, PROP_VBE_NODE, pspec);
 
-	klass_device->constructed = fu_vbe_device_constructed;
-	klass_device->finalize = fu_vbe_device_finalize;
+	object_class->constructed = fu_vbe_device_constructed;
+	object_class->finalize = fu_vbe_device_finalize;
+	klass_device->probe = fu_vbe_device_probe;
 }

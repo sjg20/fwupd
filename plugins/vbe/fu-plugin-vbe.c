@@ -95,10 +95,10 @@ fu_plugin_vbe_destroy(FuPlugin *plugin)
 }
 
 /**
- * vbe_locate_device() - Locate the method to use for a particular node
+ * vbe_locate_method() - Locate the method to use for a particular node
  *
- * This checks the compatible string in the format vbe,xxx and finds the driver
- * called xxx.
+ * This checks the compatible string in the format fwupd,vbe-xxx and finds the
+ * driver called xxx.
  *
  * @fdt: Device tree to use
  * @node: Node to use
@@ -107,7 +107,7 @@ fu_plugin_vbe_destroy(FuPlugin *plugin)
  * Returns: True on success, False on failure
  */
 static gboolean
-vbe_locate_device(gchar *fdt, gint node, struct FuVbeMethod **methp, GError **error)
+vbe_locate_method(gchar *fdt, gint node, struct FuVbeMethod **methp, GError **error)
 {
 	struct FuVbeMethod *meth = NULL;
 	const struct VbeDriver *driver;
@@ -220,7 +220,7 @@ process_system(FuPluginData *priv, gchar *fdt, gsize fdt_len, GError **error)
 	for (node = fdt_first_subnode(fdt, parent); node > 0; node = fdt_next_subnode(fdt, node)) {
 		struct FuVbeMethod *meth;
 
-		if (vbe_locate_device(fdt, node, &meth, &local_error)) {
+		if (vbe_locate_method(fdt, node, &meth, &local_error)) {
 			found++;
 		} else {
 			g_debug("Cannot locate device for node '%s': %s",
@@ -306,7 +306,6 @@ fu_plugin_vbe_coldplug(FuPlugin *plugin, FuProgress *progress, GError **error)
 	struct FuVbeMethod *meth;
 	GList *entry;
 
-	fu_progress_set_id(progress, G_STRLOC);
 	/* create a driver for each method */
 	for (entry = g_list_first(priv->methods); entry; entry = g_list_next(entry)) {
 		const struct VbeDriver *driver;

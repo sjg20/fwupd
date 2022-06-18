@@ -9,6 +9,9 @@
  * SPDX-License-Identifier: LGPL-2.1+
  */
 
+#undef G_LOG_DOMAIN
+#define G_LOG_DOMAIN "VbeSimple"
+
 #include "config.h"
 
 #include <ctype.h>
@@ -157,6 +160,9 @@ fu_vbe_simple_device_probe(FuDevice *self, GError **error)
 
 	vdev = FU_VBE_DEVICE(self);
 	g_return_val_if_fail(FU_IS_VBE_DEVICE(self), FALSE);
+
+	if (!FU_DEVICE_CLASS(fu_vbe_simple_device_parent_class)->probe(self, error))
+		return FALSE;
 
 	fdt = fu_vbe_device_get_fdt(vdev);
 	node = fu_vbe_device_get_node(vdev);
@@ -720,13 +726,6 @@ fu_vbe_simple_device_new(FuContext *ctx, const gchar *vbe_method, const gchar *f
 }
 
 static void
-fu_vbe_simple_device_constructed(GObject *obj)
-{
-	FuVbeSimpleDevice *self = FU_VBE_SIMPLE_DEVICE(obj);
-	fu_device_add_instance_id(FU_DEVICE(self), "main-system-firmware");
-}
-
-static void
 fu_vbe_simple_device_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec)
 {
 	FuVbeSimpleDevice *self = FU_VBE_SIMPLE_DEVICE(object);
@@ -833,7 +832,6 @@ fu_vbe_simple_device_class_init(FuVbeSimpleDeviceClass *klass)
 			       G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_NAME);
 	g_object_class_install_property(object_class, PROP_AREA_SIZE, pspec);
 
-	object_class->constructed = fu_vbe_simple_device_constructed;
 	object_class->finalize = fu_vbe_simple_device_finalize;
 	klass_device->probe = fu_vbe_simple_device_probe;
 	klass_device->open = fu_vbe_simple_device_open;
