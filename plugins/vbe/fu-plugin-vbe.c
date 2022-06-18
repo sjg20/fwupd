@@ -1,4 +1,5 @@
 /*
+ * Plugin to handle VBE updates
  *
  * Copyright (C) 2017 Richard Hughes <richard@hughsie.com>
  * Copyright (C) 2022 Google LLC
@@ -162,7 +163,7 @@ vbe_locate_method(gchar *fdt, gint node, struct FuVbeMethod **methp, GError **er
 	for (driver = driver_list; driver->name; driver++) {
 		if (!strcmp(method_name, driver->name)) {
 			meth = g_malloc(sizeof(struct FuVbeMethod));
-			meth->vbe_method = p + 1;
+			meth->vbe_method = p;
 			meth->node = node;
 			meth->driver = driver;
 			g_debug("Update mechanism: %s", meth->vbe_method);
@@ -309,14 +310,13 @@ fu_plugin_vbe_coldplug(FuPlugin *plugin, FuProgress *progress, GError **error)
 	/* create a driver for each method */
 	for (entry = g_list_first(priv->methods); entry; entry = g_list_next(entry)) {
 		const struct VbeDriver *driver;
-		g_autoptr(FuVbeDevice) vdev;
 		FuDevice *dev;
 		const gchar *version;
 
 		meth = entry->data;
 		driver = meth->driver;
-		dev = driver->new_func(ctx, meth->vbe_method, priv->fdt, meth->node);
-		vdev = FU_VBE_DEVICE(dev);
+		g_debug("%s: %s", __func__, priv->vbe_dir);
+		dev = driver->new_func(ctx, meth->vbe_method, priv->fdt, meth->node, priv->vbe_dir);
 
 		fu_device_set_id(dev, meth->vbe_method);
 

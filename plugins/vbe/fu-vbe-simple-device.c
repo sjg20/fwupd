@@ -1,6 +1,6 @@
 /*
  *
- * VBE plugin for fwupd,mmc-simple
+ * VBE plugin for fwupd,vbe-simple
  *
  * Copyright (C) 2017 Richard Hughes <richard@hughsie.com>
  * Copyright (C) 2022 Google LLC
@@ -338,8 +338,7 @@ fu_vbe_simple_device_close(FuDevice *device, GError **error)
  *
  * @fit: FIT to check
  * @cfg: Config node in FIT to check
- * @method_compat: Compatible list for the VBE method (a device tree string list)
- * @method_compat_len: Length of @method_compat
+ * @compat_list: List of compatible properties for this model, if any
  * @return 0 if the given cfg matches, -ve if not
  */
 static gint
@@ -370,11 +369,22 @@ check_config_match(struct fit_info *fit, gint cfg, GList *compat_list)
 	return -1;
 }
 
+/**
+ * process_image() - Write a single image to the device
+ *
+ * Look up an image node, read the data out of it and write the data to the
+ * device at the correct store offset.
+ *
+ * @fit: FIT to write
+ * @img: FIT offset of image to write
+ * @dev: Device to use
+ * @error: Returns error information if this function returns FALSE
+ * Returns: TRUE on success, FALSE on failure
+ */
 static gboolean
 process_image(struct fit_info *fit,
 	      gint img,
 	      struct _FuVbeSimpleDevice *dev,
-	      FuProgress *progress,
 	      GError **error)
 {
 	guint store_offset = 0;
@@ -466,6 +476,20 @@ process_image(struct fit_info *fit,
 	return TRUE;
 }
 
+/**
+ * process_config() - Write a single configuration to the device
+ *
+ * Look up all the images in a configuration and write them one by one to
+ * the device.
+ *
+ * @fit: FIT to write
+ * @cfg: FIT offset of configuration to write
+ * @dev: Device to use
+ * @progress: Progress information to update (this is simplistic and assumes
+ * that each image takes the same time to write)
+ * @error: Returns error information if this function returns FALSE
+ * Returns: TRUE on success, FALSE on failure
+ */
 static gboolean
 process_config(struct fit_info *fit,
 	       gint cfg,
@@ -493,7 +517,7 @@ process_config(struct fit_info *fit,
 		}
 		fu_progress_set_percentage_full(progress, i, count);
 
-		if (!process_image(fit, image, dev, progress, error))
+		if (!process_image(fit, image, dev, error))
 			return FALSE;
 	}
 	fu_progress_set_percentage_full(progress, i, count);
@@ -502,6 +526,20 @@ process_config(struct fit_info *fit,
 	return TRUE;
 }
 
+/**
+ * process_fit() - Write the firmware from a FIT to the device
+ *
+ * Select the best configuration for the model, then write that configuration
+ * to the device.
+ *
+ * @fit: FIT to write
+ * @dev: Device to use
+ * @compat_list: List of compatible properties for this model, if any
+ * @progress: Progress information to update (this is simplistic and assumes
+ * that each image takes the same time to write)
+ * @error: Returns error information if this function returns FALSE
+ * Returns: TRUE on success, FALSE on failure
+ */
 static gboolean
 process_fit(struct fit_info *fit,
 	    struct _FuVbeSimpleDevice *dev,
@@ -686,9 +724,6 @@ fu_vbe_simple_device_set_progress(FuDevice *self, FuProgress *progress)
 static void
 fu_vbe_simple_device_init(FuVbeSimpleDevice *self)
 {
-	g_autofree gchar *state_dir = NULL;
-	g_autofree gchar *vbe_fname = NULL;
-
 	fu_device_add_flag(FU_DEVICE(self),
 			   FWUPD_DEVICE_FLAG_INTERNAL | FWUPD_DEVICE_FLAG_UPDATABLE |
 			       FWUPD_DEVICE_FLAG_NEEDS_REBOOT | FWUPD_DEVICE_FLAG_CAN_VERIFY |
@@ -700,25 +735,37 @@ fu_vbe_simple_device_init(FuVbeSimpleDevice *self)
 	fu_device_set_physical_id(FU_DEVICE(self), "vbe");
 	fu_device_set_version_format(FU_DEVICE(self), FWUPD_VERSION_FORMAT_PAIR);
 	fu_device_add_icon(FU_DEVICE(self), "computer");
-
-	state_dir = fu_path_from_kind(FU_PATH_KIND_LOCALSTATEDIR_PKG);
-	vbe_fname = g_build_filename(state_dir, "vbe", "simple.dtb", NULL);
-	self->vbe_fname = g_steal_pointer(&vbe_fname);
 }
 
 FuDevice *
-fu_vbe_simple_device_new(FuContext *ctx, const gchar *vbe_method, const gchar *fdt, gint node)
+fu_vbe_simple_device_new(FuContext *ctx, const gchar *vbe_method, const gchar *fdt, gint node, const gchar *vbe_dir)
 {
 	return FU_DEVICE(g_object_new(FU_TYPE_VBE_SIMPLE_DEVICE,
 				      "context",
 				      ctx,
-				      "vbe_method",
+				      "vbe-method",
 				      vbe_method,
 				      "fdt",
 				      fdt,
 				      "node",
 				      node,
+			       "vbe-dir",
+			       vbe_dir,
 				      NULL));
+}
+
+static void
+fu_vbe_simple_device_constructed(GObject *obj)
+{
+	struct _FuVbeSimpleDevice *dev = FU_VBE_SIMPLE_DEVICE(obj);
+	g_autofree gchar *vbe_fname = NULL;
+	FuVbeDevice *vdev;
+
+	vdev = FU_VBE_DEVICE(dev);
+	g_return_if_fail(FU_IS_VBE_DEVICE(dev));
+
+	vbe_fname = g_build_filename(fu_vbe_device_get_dir(vdev), "simple.dtb", NULL);
+	dev->vbe_fname = g_steal_pointer(&vbe_fname);
 }
 
 static void
@@ -828,6 +875,7 @@ fu_vbe_simple_device_class_init(FuVbeSimpleDeviceClass *klass)
 			       G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_NAME);
 	g_object_class_install_property(object_class, PROP_AREA_SIZE, pspec);
 
+	object_class->constructed = fu_vbe_simple_device_constructed;
 	object_class->finalize = fu_vbe_simple_device_finalize;
 	klass_device->probe = fu_vbe_simple_device_probe;
 	klass_device->open = fu_vbe_simple_device_open;

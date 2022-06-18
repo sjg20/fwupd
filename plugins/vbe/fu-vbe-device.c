@@ -1,4 +1,5 @@
 /*
+ * Base class for all VBE devices
  *
  * Copyright (C) 2017 Richard Hughes <richard@hughsie.com>
  * Copyright (C) 2022 Google LLC
@@ -16,7 +17,7 @@
 #include "fu-vbe-device.h"
 
 /* G_OBJECT properties associated with the plugin */
-enum { PROP_0, PROP_VBE_METHOD, PROP_VBE_FDT, PROP_VBE_NODE, PROP_LAST };
+enum { PROP_0, PROP_VBE_METHOD, PROP_VBE_FDT, PROP_VBE_NODE, PROP_VBE_DIR, PROP_LAST };
 
 /**
  * struct _FuVbeDevice - Information for a VBE device
@@ -26,14 +27,14 @@ enum { PROP_0, PROP_VBE_METHOD, PROP_VBE_FDT, PROP_VBE_NODE, PROP_LAST };
  * @fdt: Device tree containing the info
  * @node: Node containing the info for this device
  * @compat_list: List of compatible properties for this model, if any
- * @storage: Storage device name (e.g. "mmc1")
+ * @vbe_dir: Director holding state for VBE methods, e.g.
  */
 typedef struct {
 	gchar *vbe_method;
 	gchar *fdt;
 	gint node;
 	GList *compat_list;
-	const gchar *storage;
+	gchar *vbe_dir;
 } FuVbeDevicePrivate;
 
 G_DEFINE_TYPE_WITH_PRIVATE(FuVbeDevice, fu_vbe_device, FU_TYPE_DEVICE)
@@ -104,6 +105,21 @@ fu_vbe_device_get_compat_list(FuVbeDevice *self)
 	return priv->compat_list;
 }
 
+/**
+ * fu_vbe_device_get_dir() - Get the director containing method information
+ *
+ * @self: Device to check
+ * @return method being used, e.g. "/var/local/lib/fwupd/vbe"
+ */
+const gchar *
+fu_vbe_device_get_dir(FuVbeDevice *self)
+{
+	FuVbeDevicePrivate *priv = GET_PRIVATE(self);
+
+	g_return_val_if_fail(FU_IS_VBE_DEVICE(self), NULL);
+	return priv->vbe_dir;
+}
+
 static void
 fu_vbe_device_init(FuVbeDevice *self)
 {
@@ -124,16 +140,16 @@ fu_vbe_device_init(FuVbeDevice *self)
 }
 
 static gboolean
-fu_vbe_device_probe(FuDevice *self, GError **error)
+fu_vbe_device_probe(FuDevice *fud, GError **error)
 {
 	FuVbeDevicePrivate *priv;
-	FuVbeDevice *dev = FU_VBE_DEVICE(self);
+	FuVbeDevice *self = FU_VBE_DEVICE(fud);
 	const gchar *compat;
 	GList *clist = NULL;
 	gint len, i;
 
-	g_return_val_if_fail(FU_IS_VBE_DEVICE(dev), FALSE);
-	priv = GET_PRIVATE(dev);
+	g_return_val_if_fail(FU_IS_VBE_DEVICE(self), FALSE);
+	priv = GET_PRIVATE(self);
 
 	/* Get a list of compatible strings */
 	for (i = 0; compat = fdt_stringlist_get(priv->fdt, 0, "compatible", i, &len), compat; i++) {
@@ -143,21 +159,6 @@ fu_vbe_device_probe(FuDevice *self, GError **error)
 	priv->compat_list = clist;
 
 	return TRUE;
-}
-
-FuDevice *
-fu_vbe_device_new(FuContext *ctx, const gchar *vbe_method, const gchar *fdt, gint node)
-{
-	return FU_DEVICE(g_object_new(FU_TYPE_VBE_DEVICE,
-				      "context",
-				      ctx,
-				      "vbe_method",
-				      vbe_method,
-				      "fdt",
-				      fdt,
-				      "node",
-				      node,
-				      NULL));
 }
 
 static void
@@ -182,6 +183,9 @@ fu_vbe_device_get_property(GObject *object, guint prop_id, GValue *value, GParam
 	case PROP_VBE_NODE:
 		g_value_set_int(value, priv->node);
 		break;
+	case PROP_VBE_DIR:
+		g_value_set_string(value, priv->vbe_dir);
+		break;
 	default:
 		G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
 		break;
@@ -204,6 +208,11 @@ fu_vbe_device_set_property(GObject *object, guint prop_id, const GValue *value, 
 		break;
 	case PROP_VBE_NODE:
 		priv->node = g_value_get_int(value);
+		break;
+	case PROP_VBE_DIR:
+		if (priv->vbe_dir)
+			g_free(priv->vbe_dir);
+		priv->vbe_dir = g_strdup(g_value_get_string(value));
 		break;
 	default:
 		G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -270,6 +279,19 @@ fu_vbe_device_class_init(FuVbeDeviceClass *klass)
 				 -1,
 				 G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_NAME);
 	g_object_class_install_property(object_class, PROP_VBE_NODE, pspec);
+
+	/**
+	 * FuVbeDevice:vbe_dir:
+	 *
+	 * The VBE state directory, e.g. '/var/local/lib/fwupd/vbe'
+	 */
+	pspec =
+	    g_param_spec_string("vbe-dir",
+				NULL,
+				"Directory containing state for each VBE method",
+				NULL,
+				G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_NAME);
+	g_object_class_install_property(object_class, PROP_VBE_DIR, pspec);
 
 	object_class->constructed = fu_vbe_device_constructed;
 	object_class->finalize = fu_vbe_device_finalize;

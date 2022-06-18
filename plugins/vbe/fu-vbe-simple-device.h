@@ -16,4 +16,4 @@
 G_DECLARE_FINAL_TYPE(FuVbeSimpleDevice, fu_vbe_simple_device, FU, VBE_SIMPLE_DEVICE, FuVbeDevice)
 
 FuDevice *
-fu_vbe_simple_device_new(FuContext *ctx, const gchar *vbe_method, const gchar *fdt, gint node);
+fu_vbe_simple_device_new(FuContext *ctx, const gchar *vbe_method, const gchar *fdt, gint node, const gchar *vbe_dir);

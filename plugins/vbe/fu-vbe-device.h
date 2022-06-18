@@ -17,13 +17,11 @@ struct _FuVbeDeviceClass {
 	FuDeviceClass parent_class;
 };
 
-FuDevice *
-fu_vbe_device_new(FuContext *ctx, const gchar *vbe_method, const gchar *fdt, gint node);
-
 typedef FuDevice *(*vbe_device_new_func)(FuContext *ctx,
 					 const gchar *vbe_method,
 					 const gchar *fdt,
-					 gint node);
+					 gint node,
+					 const gchar *vbe_dir);
 
 const gchar *
 fu_vbe_device_get_method(FuVbeDevice *self);
@@ -36,3 +34,6 @@ fu_vbe_device_get_node(FuVbeDevice *self);
 
 GList *
 fu_vbe_device_get_compat_list(FuVbeDevice *self);
+
+const gchar *
+fu_vbe_device_get_dir(FuVbeDevice *self);
