@@ -105,7 +105,7 @@ a subnode of `chosen/fwupd`. Here is an example:
  chosen {
   fwupd {
    firmware {
-    compatible = "fwupd,simple";
+    compatible = "fwupd,vbe-simple";
     cur-version = "1.2.3";
     storage = "/tmp/testfw";
     area-start = <0x100000>;
@@ -128,8 +128,11 @@ configuration to have an update for a specific board, while another provides an
 update for all other boards.
 
 The compatible string of the firmware update indicates the VBE method that is
-being used. Other properties within the node are determined by that method, but
-some are common to all:
+being used. It must have 'fwupd' as the manufacturer and the model must start
+with 'vbe-'.
+
+Other properties within the node are determined by that method, but some are
+common to all:
 
 * compatible - indicates the VBE method to use, in the form `fwupd,<method>`.
 * cur-version - indicates the version that is currently installed, if this is
@@ -161,9 +164,9 @@ fdtdump /var/local/lib/fwupd/vbe/simple.dtb
 
 At present only one method is available:
 
-* vbe,simple - writes a single copy of the firmware to media
+* fwupd,vbe-simple - writes a single copy of the firmware to media
 
-### vbe,simple
+### vbe-simple
 
 With this, only a single copy of the firmware is available so if the write
 fails, the board may not boot. This is implemented in the vbe-simple.c file and
@@ -171,7 +174,7 @@ has the device GUID ea1b96eb-a430-4033-8708-498b6d98178b within fwupd.
 
 Properties for this method are:
 
-* compatible - must be "fwupd,simple"
+* compatible - must be "fwupd,vbe-simple"
 * storage - device to store firmware in. Two options are supported: a full path
    such as "/dev/mmcblk1" or a device number, like "mmc1". Note that only mmc
    is currently supported.
@@ -195,7 +198,7 @@ format:
 ```devicetree
  / {
      compatible = "vbe";
-     vbe-driver = "fwupd,simple";
+     vbe-driver = "fwupd,vbe-simple";
      last-update {
          finish-time = <0x00000000 0x62a7429e>;
          cur-version = "1.2.4";

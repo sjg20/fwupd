@@ -295,7 +295,7 @@ fu_vbe_simple_device_close(FuDevice *device, GError **error)
 
 	fdt_begin_node(buf, "");
 	fdt_property_string(buf, "compatible", "vbe");
-	fdt_property_string(buf, "vbe,driver", "fwupd,simple");
+	fdt_property_string(buf, "vbe,driver", "fwupd,vbe-simple");
 
 	fdt_begin_node(buf, "last-update");
 	fdt_property_u64(buf, "finish-time", state->finish_time);
@@ -440,9 +440,6 @@ process_image(struct fit_info *fit,
 		store_offset,
 		(uintmax_t)seek_to);
 
-	/* notify UI */
-	fu_progress_set_status(progress, FWUPD_STATUS_DEVICE_WRITE);
-
 	ret = lseek(dev->fd, seek_to, SEEK_SET);
 	if (ret < 0) {
 		g_set_error(error,
@@ -481,6 +478,9 @@ process_config(struct fit_info *fit,
 
 	count = fit_cfg_img_count(fit, cfg, "firmware");
 
+	fu_progress_set_id(progress, G_STRLOC);
+	fu_progress_add_step(progress, FWUPD_STATUS_DEVICE_WRITE, 100, "write");
+
 	for (i = 0; i < count; i++) {
 		gint image = fit_cfg_img(fit, cfg, "firmware", i);
 
@@ -498,6 +498,7 @@ process_config(struct fit_info *fit,
 			return FALSE;
 	}
 	fu_progress_set_percentage_full(progress, i, count);
+	fu_progress_step_done(progress);
 
 	return TRUE;
 }
@@ -671,6 +672,16 @@ fu_vbe_simple_device_upload(FuDevice *device, FuProgress *progress, GError **err
 }
 
 static void
+fu_vbe_simple_device_set_progress(FuDevice *self, FuProgress *progress)
+{
+	fu_progress_set_id(progress, G_STRLOC);
+	fu_progress_add_step(progress, FWUPD_STATUS_DEVICE_RESTART, 0, "detach");
+	fu_progress_add_step(progress, FWUPD_STATUS_DEVICE_WRITE, 100, "write");
+	fu_progress_add_step(progress, FWUPD_STATUS_DEVICE_RESTART, 0, "attach");
+	fu_progress_add_step(progress, FWUPD_STATUS_DEVICE_BUSY, 0, "reload");
+}
+
+static void
 fu_vbe_simple_device_init(FuVbeSimpleDevice *self)
 {
 	g_autofree gchar *state_dir = NULL;
@@ -694,11 +705,17 @@ fu_vbe_simple_device_init(FuVbeSimpleDevice *self)
 }
 
 FuDevice *
-fu_vbe_simple_device_new(FuContext *ctx)
+fu_vbe_simple_device_new(FuContext *ctx, const gchar *vbe_method, const gchar *fdt, gint node)
 {
 	return FU_DEVICE(g_object_new(FU_TYPE_VBE_SIMPLE_DEVICE,
 				      "context",
 				      ctx,
+				      "vbe_method",
+				      vbe_method,
+				      "fdt",
+				      fdt,
+				      "node",
+				      node,
 				      NULL));
 }
 
@@ -821,6 +838,7 @@ fu_vbe_simple_device_class_init(FuVbeSimpleDeviceClass *klass)
 	klass_device->probe = fu_vbe_simple_device_probe;
 	klass_device->open = fu_vbe_simple_device_open;
 	klass_device->close = fu_vbe_simple_device_close;
+	klass_device->set_progress = fu_vbe_simple_device_set_progress;
 	klass_device->write_firmware = fu_vbe_simple_device_write_firmware;
 	klass_device->dump_firmware = fu_vbe_simple_device_upload;
 }

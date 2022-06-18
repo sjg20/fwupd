@@ -11,7 +11,7 @@
 	chosen {
 		fwupd {
 			firmware {
-				compatible = "fwupd,simple";
+				compatible = "fwupd,vbe-simple";
 				cur-version = "1.2.3";
 				bootloader-version = "2022.01";
 				storage = "mmc1";

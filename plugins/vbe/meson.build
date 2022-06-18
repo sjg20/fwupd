@@ -6,6 +6,7 @@ shared_module('fu_plugin_vbe',
   fu_hash,
   sources : [
     'fu-plugin-vbe.c',
+    'fu-vbe-device.c',
     'fu-vbe-simple-device.c',
     'fit.c',
     'fit_test.c'
