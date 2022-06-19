@@ -11,10 +11,11 @@
  * SPDX-License-Identifier: LGPL-2.1+
  */
 
+#include "config.h"
+
 #include <libfdt.h>
 #include <zlib.h>
 
-#include "config.h"
 #include "fit.h"
 
 /* Node and property names used by FIT */

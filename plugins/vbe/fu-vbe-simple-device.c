@@ -399,10 +399,7 @@ check_config_match(struct fit_info *fit, gint cfg, GList *compat_list)
  * Returns: TRUE on success, FALSE on failure
  */
 static gboolean
-process_image(struct fit_info *fit,
-	      gint img,
-	      struct _FuVbeSimpleDevice *dev,
-	      GError **error)
+process_image(struct fit_info *fit, gint img, struct _FuVbeSimpleDevice *dev, GError **error)
 {
 	guint store_offset = 0;
 	const gchar *buf;

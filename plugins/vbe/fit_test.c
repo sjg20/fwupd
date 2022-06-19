@@ -8,12 +8,12 @@
  * SPDX-License-Identifier: LGPL-2.1+
  */
 
+#include "config.h"
+
+#include <glib-2.0/glib.h>
 #include <libfdt.h>
 #include <stdio.h>
 
-#include <glib-2.0/glib.h>
-
-#include "config.h"
 #include "fit.h"
 #include "fit_test.h"
 
@@ -86,7 +86,8 @@ typedef struct FitTest {
  * @flags: Mask of 'enum gen_t' controlling what is generated
  *
  */
-static int build_fit(char *buf, int size, int flags)
+static int
+build_fit(char *buf, int size, int flags)
 {
 	const int data_offset = 4;
 
@@ -200,7 +201,8 @@ static int build_fit(char *buf, int size, int flags)
 };
 
 /* Test an invalid FIT */
-static void test_base(FitTest *ftest, gconstpointer user_data)
+static void
+test_base(FitTest *ftest, gconstpointer user_data)
 {
 	struct fit_info *fit = &ftest->fit;
 	char *buf = ftest->buf;
@@ -216,7 +218,8 @@ static void test_base(FitTest *ftest, gconstpointer user_data)
 }
 
 /* Test a FIT with configuration but not images */
-static void test_cfg(FitTest *ftest, gconstpointer user_data)
+static void
+test_cfg(FitTest *ftest, gconstpointer user_data)
 {
 	struct fit_info *fit = &ftest->fit;
 	char *buf = ftest->buf;
@@ -264,14 +267,17 @@ static void test_cfg(FitTest *ftest, gconstpointer user_data)
 	fit_close(fit);
 }
 /* Normal FIT with compatible string and image but no data */
-static void test_img(FitTest *ftest, gconstpointer user_data)
+static void
+test_img(FitTest *ftest, gconstpointer user_data)
 {
 	struct fit_info *fit = &ftest->fit;
 	char *buf = ftest->buf;
 	int size, cfg, img;
 	const char *data;
 
-	g_assert_cmpint(0, ==, build_fit(buf, FIT_SIZE, GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS));
+	g_assert_cmpint(0,
+			==,
+			build_fit(buf, FIT_SIZE, GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS));
 	g_assert_cmpint(0, ==, fit_open(fit, buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
@@ -280,7 +286,10 @@ static void test_img(FitTest *ftest, gconstpointer user_data)
 	fit_close(fit);
 
 	/* With an image as well */
-	g_assert_cmpint(0, ==, build_fit(buf, FIT_SIZE, GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG));
+	g_assert_cmpint(
+	    0,
+	    ==,
+	    build_fit(buf, FIT_SIZE, GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG));
 	g_assert_cmpint(0, ==, fit_open(fit, buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
@@ -295,7 +304,8 @@ static void test_img(FitTest *ftest, gconstpointer user_data)
 }
 
 /* Normal FIT with data as well */
-static void test_data(FitTest *ftest, gconstpointer user_data)
+static void
+test_data(FitTest *ftest, gconstpointer user_data)
 {
 	struct fit_info *fit = &ftest->fit;
 	char *buf = ftest->buf;
@@ -303,9 +313,11 @@ static void test_data(FitTest *ftest, gconstpointer user_data)
 	const char *data;
 
 	/* With data as well */
-	g_assert_cmpint(0, ==, build_fit(buf,
-		       FIT_SIZE,
-		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_DATA));
+	g_assert_cmpint(0,
+			==,
+			build_fit(buf,
+				  FIT_SIZE,
+				  GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_DATA));
 	g_assert_cmpint(0, ==, fit_open(fit, buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
@@ -322,7 +334,8 @@ static void test_data(FitTest *ftest, gconstpointer user_data)
 }
 
 /* Normal FIT with external data */
-static void test_ext_data(FitTest *ftest, gconstpointer user_data)
+static void
+test_ext_data(FitTest *ftest, gconstpointer user_data)
 {
 	struct fit_info *fit = &ftest->fit;
 	char *buf = ftest->buf;
@@ -330,9 +343,12 @@ static void test_ext_data(FitTest *ftest, gconstpointer user_data)
 	const char *data;
 
 	/* Test with missing data-size property */
-	g_assert_cmpint(0, ==, build_fit(buf,
-		       FIT_SIZE,
-		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_EXT_DATA));
+	g_assert_cmpint(
+	    0,
+	    ==,
+	    build_fit(buf,
+		      FIT_SIZE,
+		      GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_EXT_DATA));
 	g_assert_cmpint(0, ==, fit_open(fit, buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
@@ -344,10 +360,12 @@ static void test_ext_data(FitTest *ftest, gconstpointer user_data)
 	fit_close(fit);
 
 	/* Test with bad data-size property */
-	g_assert_cmpint(0, ==, build_fit(buf,
-		       FIT_SIZE,
-		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_EXT_DATA |
-			   GEN_BAD_DATA_SIZE));
+	g_assert_cmpint(0,
+			==,
+			build_fit(buf,
+				  FIT_SIZE,
+				  GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG |
+				      GEN_EXT_DATA | GEN_BAD_DATA_SIZE));
 	g_assert_cmpint(0, ==, fit_open(fit, buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
@@ -359,10 +377,12 @@ static void test_ext_data(FitTest *ftest, gconstpointer user_data)
 	fit_close(fit);
 
 	/* Test with bad data-offset property */
-	g_assert_cmpint(0, ==, build_fit(buf,
-		       FIT_SIZE,
-		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_EXT_DATA |
-			   GEN_DATA_SIZE | GEN_BAD_DATA_OFFSET));
+	g_assert_cmpint(0,
+			==,
+			build_fit(buf,
+				  FIT_SIZE,
+				  GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG |
+				      GEN_EXT_DATA | GEN_DATA_SIZE | GEN_BAD_DATA_OFFSET));
 	g_assert_cmpint(0, ==, fit_open(fit, buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
@@ -374,10 +394,12 @@ static void test_ext_data(FitTest *ftest, gconstpointer user_data)
 	fit_close(fit);
 
 	/* Test with valid data-size property */
-	g_assert_cmpint(0, ==, build_fit(buf,
-		       FIT_SIZE,
-		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_EXT_DATA |
-			   GEN_DATA_SIZE));
+	g_assert_cmpint(0,
+			==,
+			build_fit(buf,
+				  FIT_SIZE,
+				  GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG |
+				      GEN_EXT_DATA | GEN_DATA_SIZE));
 	g_assert_cmpint(0, ==, fit_open(fit, buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
@@ -391,7 +413,8 @@ static void test_ext_data(FitTest *ftest, gconstpointer user_data)
 }
 
 /* Check data with CRC32 */
-static void test_crc32(FitTest *ftest, gconstpointer user_data)
+static void
+test_crc32(FitTest *ftest, gconstpointer user_data)
 {
 	struct fit_info *fit = &ftest->fit;
 	char *buf = ftest->buf;
@@ -400,10 +423,12 @@ static void test_crc32(FitTest *ftest, gconstpointer user_data)
 	int node;
 
 	/* Missing 'algo' property gives an error when 'value' is provided */
-	g_assert_cmpint(0, ==, build_fit(buf,
-		       FIT_SIZE,
-		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_DATA |
-			   GEN_CRC32_VAL));
+	g_assert_cmpint(0,
+			==,
+			build_fit(buf,
+				  FIT_SIZE,
+				  GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_DATA |
+				      GEN_CRC32_VAL));
 	g_assert_cmpint(0, ==, fit_open(fit, buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
@@ -417,10 +442,12 @@ static void test_crc32(FitTest *ftest, gconstpointer user_data)
 	fit_close(fit);
 
 	/* Unknown 'algo' property gives an error when 'value' is provided */
-	g_assert_cmpint(0, ==, build_fit(buf,
-		       FIT_SIZE,
-		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_DATA |
-			   GEN_BAD_ALGO | GEN_CRC32_VAL));
+	g_assert_cmpint(0,
+			==,
+			build_fit(buf,
+				  FIT_SIZE,
+				  GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_DATA |
+				      GEN_BAD_ALGO | GEN_CRC32_VAL));
 	g_assert_cmpint(0, ==, fit_open(fit, buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
@@ -434,10 +461,12 @@ static void test_crc32(FitTest *ftest, gconstpointer user_data)
 	fit_close(fit);
 
 	/* Missing 'value' property means the hash is ignored */
-	g_assert_cmpint(0, ==, build_fit(buf,
-		       FIT_SIZE,
-		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_DATA |
-			   GEN_CRC32_ALGO));
+	g_assert_cmpint(0,
+			==,
+			build_fit(buf,
+				  FIT_SIZE,
+				  GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_DATA |
+				      GEN_CRC32_ALGO));
 	g_assert_cmpint(0, ==, fit_open(fit, buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
@@ -456,10 +485,12 @@ static void test_crc32(FitTest *ftest, gconstpointer user_data)
 	fit_close(fit);
 
 	/* 'value' and 'algo' present but the value size is wrong */
-	g_assert_cmpint(0, ==, build_fit(buf,
-		       FIT_SIZE,
-		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_DATA |
-			   GEN_CRC32_ALGO | GEN_CRC32_BAD_SIZE));
+	g_assert_cmpint(0,
+			==,
+			build_fit(buf,
+				  FIT_SIZE,
+				  GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_DATA |
+				      GEN_CRC32_ALGO | GEN_CRC32_BAD_SIZE));
 	g_assert_cmpint(0, ==, fit_open(fit, buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
@@ -473,10 +504,12 @@ static void test_crc32(FitTest *ftest, gconstpointer user_data)
 	fit_close(fit);
 
 	/* 'value' and 'algo' present but the value is wrong */
-	g_assert_cmpint(0, ==, build_fit(buf,
-		       FIT_SIZE,
-		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_DATA |
-			   GEN_CRC32_ALGO | GEN_CRC32_BAD_VAL));
+	g_assert_cmpint(0,
+			==,
+			build_fit(buf,
+				  FIT_SIZE,
+				  GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_DATA |
+				      GEN_CRC32_ALGO | GEN_CRC32_BAD_VAL));
 	g_assert_cmpint(0, ==, fit_open(fit, buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
@@ -490,10 +523,12 @@ static void test_crc32(FitTest *ftest, gconstpointer user_data)
 	fit_close(fit);
 
 	/* 'value' and 'algo' present with correct value */
-	g_assert_cmpint(0, ==, build_fit(buf,
-		       FIT_SIZE,
-		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_DATA |
-			   GEN_CRC32_ALGO | GEN_CRC32_VAL));
+	g_assert_cmpint(0,
+			==,
+			build_fit(buf,
+				  FIT_SIZE,
+				  GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_DATA |
+				      GEN_CRC32_ALGO | GEN_CRC32_VAL));
 	g_assert_cmpint(0, ==, fit_open(fit, buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
@@ -508,14 +543,18 @@ static void test_crc32(FitTest *ftest, gconstpointer user_data)
 }
 
 /* Check data with store-offset */
-static void test_store_offset(FitTest *ftest, gconstpointer user_data)
+static void
+test_store_offset(FitTest *ftest, gconstpointer user_data)
 {
 	struct fit_info *fit = &ftest->fit;
 	char *buf = ftest->buf;
 	int cfg, img;
 
 	/* Missing 'store-offset' property */
-	g_assert_cmpint(0, ==, build_fit(buf, FIT_SIZE, GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG));
+	g_assert_cmpint(
+	    0,
+	    ==,
+	    build_fit(buf, FIT_SIZE, GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG));
 	g_assert_cmpint(0, ==, fit_open(fit, buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
@@ -527,7 +566,9 @@ static void test_store_offset(FitTest *ftest, gconstpointer user_data)
 	fit_close(fit);
 
 	/* Negative 'store-offset' property */
-	g_assert_cmpint(0, ==,
+	g_assert_cmpint(
+	    0,
+	    ==,
 	    build_fit(buf,
 		      FIT_SIZE,
 		      GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_BAD_STORE_OFFSET));
@@ -542,9 +583,12 @@ static void test_store_offset(FitTest *ftest, gconstpointer user_data)
 	fit_close(fit);
 
 	/* Valid 'store-offset' property */
-	g_assert_cmpint(0, ==, build_fit(buf,
-		       FIT_SIZE,
-		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_STORE_OFFSET));
+	g_assert_cmpint(
+	    0,
+	    ==,
+	    build_fit(buf,
+		      FIT_SIZE,
+		      GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_STORE_OFFSET));
 	g_assert_cmpint(0, ==, fit_open(fit, buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
@@ -557,7 +601,8 @@ static void test_store_offset(FitTest *ftest, gconstpointer user_data)
 }
 
 /* Check getting config version */
-static void test_version(FitTest *ftest, gconstpointer user_data)
+static void
+test_version(FitTest *ftest, gconstpointer user_data)
 {
 	struct fit_info *fit = &ftest->fit;
 	char *buf = ftest->buf;
@@ -581,7 +626,8 @@ static void test_version(FitTest *ftest, gconstpointer user_data)
 	g_assert_cmpstr("1.2.3", ==, version);
 }
 
-int main(int argc, char **argv)
+int
+main(int argc, char **argv)
 {
 	g_test_init(&argc, &argv, NULL);
 	g_log_set_fatal_mask(NULL, G_LOG_LEVEL_ERROR | G_LOG_LEVEL_CRITICAL);
