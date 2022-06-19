@@ -246,7 +246,7 @@ build_fit(char *buf, int size, int flags)
 		strcpy(data, "abc");
 	}
 
-	CHECK(fdt_totalsize(buf) <= FIT_SIZE);
+	g_assert_cmpint(0, ==, fdt_totalsize(buf) <= FIT_SIZE);
 
 	return 0;
 };
@@ -290,7 +290,7 @@ static void test_cfg(FitTest *ftest, gconstpointer user_data)
 	g_assert_cmpint(0, ==, fit_open(fit, fit_buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
-	CHECK(cfg > 0);
+	g_assert_cmpint(cfg, >, 0);
 	CHECKEQ_STR("conf-1", fit_cfg_name(fit, cfg));
 
 	CHECKEQ_NULL(fit_cfg_compat_item(fit, cfg, 0));
@@ -301,7 +301,7 @@ static void test_cfg(FitTest *ftest, gconstpointer user_data)
 	g_assert_cmpint(0, ==, fit_open(fit, fit_buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
-	CHECK(cfg > 0);
+	g_assert_cmpint(0, ==, cfg > 0);
 	CHECKEQ_STR("conf-1", fit_cfg_name(fit, cfg));
 
 	CHECKEQ_STR("mary", fit_cfg_compat_item(fit, cfg, 0));
@@ -335,7 +335,7 @@ static void test_img(FitTest *ftest, gconstpointer user_data)
 
 	cfg = fit_first_cfg(fit);
 	img = fit_cfg_img(fit, cfg, "firmware", 0);
-	CHECK(img > 0);
+	g_assert_cmpint(0, ==, img > 0);
 
 	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
 	data = fit_img_data(fit, img, &size);
@@ -360,12 +360,12 @@ test_data(void)
 
 	cfg = fit_first_cfg(fit);
 	img = fit_cfg_img(fit, cfg, "firmware", 0);
-	CHECK(img > 0);
+	g_assert_cmpint(0, ==, img > 0);
 
 	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
 	data = fit_img_data(fit, img, &size);
 	g_assert_cmpint(3, ==, size);
-	CHECK(!strncmp(data, "abc", 3));
+	g_assert_cmpint(0, ==, !strncmp(data, "abc", 3));
 
 	cfg = fit_next_cfg(fit, cfg);
 	g_assert_cmpint(-FITE_NOT_FOUND, ==, cfg);
@@ -437,8 +437,8 @@ test_ext_data(void)
 
 	data = fit_img_data(fit, img, &size);
 	g_assert_cmpint(3, ==, size);
-	CHECK(data != NULL);
-	CHECK(!strncmp(data, "abc", 3));
+	g_assert_cmpint(0, ==, data != NULL);
+	g_assert_cmpint(0, ==, !strncmp(data, "abc", 3));
 	fit_close(fit);
 
 	return 0;
@@ -462,7 +462,7 @@ test_crc32(void)
 
 	cfg = fit_first_cfg(fit);
 	img = fit_cfg_img(fit, cfg, "firmware", 0);
-	CHECK(img > 0);
+	g_assert_cmpint(0, ==, img > 0);
 
 	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
 	data = fit_img_data(fit, img, &size);
@@ -479,7 +479,7 @@ test_crc32(void)
 
 	cfg = fit_first_cfg(fit);
 	img = fit_cfg_img(fit, cfg, "firmware", 0);
-	CHECK(img > 0);
+	g_assert_cmpint(0, ==, img > 0);
 
 	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
 	data = fit_img_data(fit, img, &size);
@@ -496,16 +496,16 @@ test_crc32(void)
 
 	cfg = fit_first_cfg(fit);
 	img = fit_cfg_img(fit, cfg, "firmware", 0);
-	CHECK(img > 0);
+	g_assert_cmpint(0, ==, img > 0);
 
 	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
 	data = fit_img_data(fit, img, &size);
-	CHECK(data != NULL);
-	CHECK(!strncmp(data, "abc", 3));
+	g_assert_cmpint(0, ==, data != NULL);
+	g_assert_cmpint(0, ==, !strncmp(data, "abc", 3));
 
 	/* ...but we can see that the hash value as missing */
 	node = fdt_first_subnode(fit->blob, img);
-	CHECK(node > 0);
+	g_assert_cmpint(0, ==, node > 0);
 	g_assert_cmpint(-FITE_MISSING_VALUE, ==, fit_check_hash(fit, node, "abc", 3));
 	fit_close(fit);
 
@@ -518,7 +518,7 @@ test_crc32(void)
 
 	cfg = fit_first_cfg(fit);
 	img = fit_cfg_img(fit, cfg, "firmware", 0);
-	CHECK(img > 0);
+	g_assert_cmpint(0, ==, img > 0);
 
 	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
 	data = fit_img_data(fit, img, &size);
@@ -535,7 +535,7 @@ test_crc32(void)
 
 	cfg = fit_first_cfg(fit);
 	img = fit_cfg_img(fit, cfg, "firmware", 0);
-	CHECK(img > 0);
+	g_assert_cmpint(0, ==, img > 0);
 
 	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
 	data = fit_img_data(fit, img, &size);
@@ -552,7 +552,7 @@ test_crc32(void)
 
 	cfg = fit_first_cfg(fit);
 	img = fit_cfg_img(fit, cfg, "firmware", 0);
-	CHECK(img > 0);
+	g_assert_cmpint(0, ==, img > 0);
 
 	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
 	data = fit_img_data(fit, img, &size);
@@ -576,7 +576,7 @@ test_store_offset(void)
 
 	cfg = fit_first_cfg(fit);
 	img = fit_cfg_img(fit, cfg, "firmware", 0);
-	CHECK(img > 0);
+	g_assert_cmpint(0, ==, img > 0);
 
 	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
 	g_assert_cmpint(-FITE_NOT_FOUND, ==, fit_img_store_offset(fit, img));
@@ -591,7 +591,7 @@ test_store_offset(void)
 
 	cfg = fit_first_cfg(fit);
 	img = fit_cfg_img(fit, cfg, "firmware", 0);
-	CHECK(img > 0);
+	g_assert_cmpint(0, ==, img > 0);
 
 	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
 	g_assert_cmpint(-FITE_NEGATIVE_OFFSET, ==, fit_img_store_offset(fit, img));
@@ -605,7 +605,7 @@ test_store_offset(void)
 
 	cfg = fit_first_cfg(fit);
 	img = fit_cfg_img(fit, cfg, "firmware", 0);
-	CHECK(img > 0);
+	g_assert_cmpint(0, ==, img > 0);
 
 	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
 	g_assert_cmpint(0x1000, ==, fit_img_store_offset(fit, img));
