@@ -246,7 +246,7 @@ build_fit(char *buf, int size, int flags)
 		strcpy(data, "abc");
 	}
 
-	g_assert_cmpint(0, ==, fdt_totalsize(buf) <= FIT_SIZE);
+	g_assert_cmpint(fdt_totalsize(buf), <=, FIT_SIZE);
 
 	return 0;
 };
@@ -291,9 +291,9 @@ static void test_cfg(FitTest *ftest, gconstpointer user_data)
 
 	cfg = fit_first_cfg(fit);
 	g_assert_cmpint(cfg, >, 0);
-	CHECKEQ_STR("conf-1", fit_cfg_name(fit, cfg));
+	g_assert_cmpstr("conf-1", ==, fit_cfg_name(fit, cfg));
 
-	CHECKEQ_NULL(fit_cfg_compat_item(fit, cfg, 0));
+	g_assert_null(fit_cfg_compat_item(fit, cfg, 0));
 	fit_close(fit);
 
 	/* Normal FIT with compatible string but no /images node */
@@ -301,10 +301,10 @@ static void test_cfg(FitTest *ftest, gconstpointer user_data)
 	g_assert_cmpint(0, ==, fit_open(fit, fit_buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
-	g_assert_cmpint(0, ==, cfg > 0);
-	CHECKEQ_STR("conf-1", fit_cfg_name(fit, cfg));
+	g_assert_cmpint(cfg, >, 0);
+	g_assert_cmpstr("conf-1", ==, fit_cfg_name(fit, cfg));
 
-	CHECKEQ_STR("mary", fit_cfg_compat_item(fit, cfg, 0));
+	g_assert_cmpstr("mary", ==, fit_cfg_compat_item(fit, cfg, 0));
 
 	g_assert_cmpint(-FITE_NOT_FOUND, ==, fit_cfg_img_count(fit, cfg, "fred"));
 	g_assert_cmpint(-FITE_NOT_FOUND, ==, fit_cfg_img(fit, cfg, "fred", 0));
@@ -337,9 +337,9 @@ static void test_img(FitTest *ftest, gconstpointer user_data)
 	img = fit_cfg_img(fit, cfg, "firmware", 0);
 	g_assert_cmpint(0, ==, img > 0);
 
-	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
+	g_assert_cmpstr("firmware-1", ==, fit_img_name(fit, img));
 	data = fit_img_data(fit, img, &size);
-	CHECKEQ_NULL(data);
+	g_assert_null(data);
 	g_assert_cmpint(-FITE_NOT_FOUND, ==, size);
 	fit_close(fit);
 }
@@ -362,7 +362,7 @@ test_data(void)
 	img = fit_cfg_img(fit, cfg, "firmware", 0);
 	g_assert_cmpint(0, ==, img > 0);
 
-	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
+	g_assert_cmpstr("firmware-1", ==, fit_img_name(fit, img));
 	data = fit_img_data(fit, img, &size);
 	g_assert_cmpint(3, ==, size);
 	g_assert_cmpint(0, ==, !strncmp(data, "abc", 3));
@@ -391,7 +391,7 @@ test_ext_data(void)
 	img = fit_cfg_img(fit, cfg, "firmware", 0);
 
 	data = fit_img_data(fit, img, &size);
-	CHECKEQ_NULL(data);
+	g_assert_null(data);
 	g_assert_cmpint(-FITE_MISSING_SIZE, ==, size);
 	fit_close(fit);
 
@@ -406,7 +406,7 @@ test_ext_data(void)
 	img = fit_cfg_img(fit, cfg, "firmware", 0);
 
 	data = fit_img_data(fit, img, &size);
-	CHECKEQ_NULL(data);
+	g_assert_null(data);
 	g_assert_cmpint(-FITE_NEGATIVE_SIZE, ==, size);
 	fit_close(fit);
 
@@ -421,7 +421,7 @@ test_ext_data(void)
 	img = fit_cfg_img(fit, cfg, "firmware", 0);
 
 	data = fit_img_data(fit, img, &size);
-	CHECKEQ_NULL(data);
+	g_assert_null(data);
 	g_assert_cmpint(-FITE_NEGATIVE_OFFSET, ==, size);
 	fit_close(fit);
 
@@ -464,9 +464,9 @@ test_crc32(void)
 	img = fit_cfg_img(fit, cfg, "firmware", 0);
 	g_assert_cmpint(0, ==, img > 0);
 
-	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
+	g_assert_cmpstr("firmware-1", ==, fit_img_name(fit, img));
 	data = fit_img_data(fit, img, &size);
-	CHECKEQ_NULL(data);
+	g_assert_null(data);
 	g_assert_cmpint(-FITE_MISSING_ALGO, ==, size);
 	fit_close(fit);
 
@@ -481,9 +481,9 @@ test_crc32(void)
 	img = fit_cfg_img(fit, cfg, "firmware", 0);
 	g_assert_cmpint(0, ==, img > 0);
 
-	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
+	g_assert_cmpstr("firmware-1", ==, fit_img_name(fit, img));
 	data = fit_img_data(fit, img, &size);
-	CHECKEQ_NULL(data);
+	g_assert_null(data);
 	g_assert_cmpint(-FITE_UNKNOWN_ALGO, ==, size);
 	fit_close(fit);
 
@@ -498,7 +498,7 @@ test_crc32(void)
 	img = fit_cfg_img(fit, cfg, "firmware", 0);
 	g_assert_cmpint(0, ==, img > 0);
 
-	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
+	g_assert_cmpstr("firmware-1", ==, fit_img_name(fit, img));
 	data = fit_img_data(fit, img, &size);
 	g_assert_cmpint(0, ==, data != NULL);
 	g_assert_cmpint(0, ==, !strncmp(data, "abc", 3));
@@ -520,9 +520,9 @@ test_crc32(void)
 	img = fit_cfg_img(fit, cfg, "firmware", 0);
 	g_assert_cmpint(0, ==, img > 0);
 
-	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
+	g_assert_cmpstr("firmware-1", ==, fit_img_name(fit, img));
 	data = fit_img_data(fit, img, &size);
-	CHECKEQ_NULL(data);
+	g_assert_null(data);
 	g_assert_cmpint(-FITE_INVALID_HASH_SIZE, ==, size);
 	fit_close(fit);
 
@@ -537,9 +537,9 @@ test_crc32(void)
 	img = fit_cfg_img(fit, cfg, "firmware", 0);
 	g_assert_cmpint(0, ==, img > 0);
 
-	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
+	g_assert_cmpstr("firmware-1", ==, fit_img_name(fit, img));
 	data = fit_img_data(fit, img, &size);
-	CHECKEQ_NULL(data);
+	g_assert_null(data);
 	g_assert_cmpint(-FITE_HASH_MISMATCH, ==, size);
 	fit_close(fit);
 
@@ -554,9 +554,9 @@ test_crc32(void)
 	img = fit_cfg_img(fit, cfg, "firmware", 0);
 	g_assert_cmpint(0, ==, img > 0);
 
-	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
+	g_assert_cmpstr("firmware-1", ==, fit_img_name(fit, img));
 	data = fit_img_data(fit, img, &size);
-	CHECKEQ_NULL(data);
+	g_assert_null(data);
 	g_assert_cmpint(-FITE_HASH_MISMATCH, ==, size);
 	fit_close(fit);
 
@@ -578,7 +578,7 @@ test_store_offset(void)
 	img = fit_cfg_img(fit, cfg, "firmware", 0);
 	g_assert_cmpint(0, ==, img > 0);
 
-	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
+	g_assert_cmpstr("firmware-1", ==, fit_img_name(fit, img));
 	g_assert_cmpint(-FITE_NOT_FOUND, ==, fit_img_store_offset(fit, img));
 	fit_close(fit);
 
@@ -593,7 +593,7 @@ test_store_offset(void)
 	img = fit_cfg_img(fit, cfg, "firmware", 0);
 	g_assert_cmpint(0, ==, img > 0);
 
-	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
+	g_assert_cmpstr("firmware-1", ==, fit_img_name(fit, img));
 	g_assert_cmpint(-FITE_NEGATIVE_OFFSET, ==, fit_img_store_offset(fit, img));
 	fit_close(fit);
 
@@ -607,7 +607,7 @@ test_store_offset(void)
 	img = fit_cfg_img(fit, cfg, "firmware", 0);
 	g_assert_cmpint(0, ==, img > 0);
 
-	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
+	g_assert_cmpstr("firmware-1", ==, fit_img_name(fit, img));
 	g_assert_cmpint(0x1000, ==, fit_img_store_offset(fit, img));
 	fit_close(fit);
 
@@ -628,7 +628,7 @@ test_version(void)
 
 	cfg = fit_first_cfg(fit);
 	version = fit_cfg_version(fit, cfg);
-	CHECKEQ_NULL(version);
+	g_assert_null(version);
 
 	/* With version */
 	g_assert_cmpint(0, ==, build_fit(fit_buf, FIT_SIZE, GEN_CFGS | GEN_CFG | GEN_VERSION));
@@ -636,7 +636,7 @@ test_version(void)
 
 	cfg = fit_first_cfg(fit);
 	version = fit_cfg_version(fit, cfg);
-	CHECKEQ_STR("1.2.3", version);
+	g_assert_cmpstr("1.2.3", ==, version);
 
 	return 0;
 }

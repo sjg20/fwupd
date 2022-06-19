@@ -256,14 +256,8 @@ fu_plugin_vbe_startup(FuPlugin *plugin, FuProgress *progress, GError **error)
 	g_autofree gchar *bfname = NULL;
 	gchar *buf = NULL;
 	gsize len;
-	gint ret;
 
 	fu_progress_set_id(progress, G_STRLOC);
-	ret = fit_test();
-	if (ret) {
-		g_set_error(error, FWUPD_ERROR, FWUPD_ERROR_INTERNAL, "fit_test failed: %d", ret);
-		return FALSE;
-	}
 
 	/* get the VBE directory */
 	state_dir = fu_path_from_kind(FU_PATH_KIND_LOCALSTATEDIR_PKG);
