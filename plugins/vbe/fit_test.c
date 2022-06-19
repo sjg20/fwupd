@@ -274,6 +274,8 @@ test_cfg(void)
 	struct fit_info s_fit, *fit = &s_fit;
 	int cfg;
 
+	CALL(build_fit(fit_buf, FIT_SIZE, 0));
+	CALL(fit_open(fit, fit_buf, FIT_SIZE));
 	cfg = fit_first_cfg(fit);
 	CHECKEQ(-FITE_NO_CONFIG_NODE, cfg);
 

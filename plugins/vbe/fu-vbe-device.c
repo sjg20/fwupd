@@ -24,7 +24,8 @@ enum { PROP_0, PROP_VBE_METHOD, PROP_VBE_FDT, PROP_VBE_NODE, PROP_VBE_DIR, PROP_
  *
  * @parent_instance: FuDevice parent device
  * @vbe_method: Name of method ("simple")
- * @fdt: Device tree containing the info
+ * @fdt: Device tree containing the info. This is owned by the plugin which
+ *	created this device
  * @node: Node containing the info for this device
  * @compat_list: List of compatible properties for this model, if any
  * @vbe_dir: Director holding state for VBE methods, e.g.
@@ -44,7 +45,7 @@ G_DEFINE_TYPE_WITH_PRIVATE(FuVbeDevice, fu_vbe_device, FU_TYPE_DEVICE)
  * fu_vbe_device_get_method() - Get the VBE method for a device
  *
  * @self: Device to check
- * @return method being used, e.g. "vbe-simple"
+ * Returns: method being used, e.g. "vbe-simple"
  */
 const gchar *
 fu_vbe_device_get_method(FuVbeDevice *self)
@@ -62,7 +63,7 @@ fu_vbe_device_get_method(FuVbeDevice *self)
  * information relating to the device
  *
  * @self: Device to check
- * @return pointer to FDT
+ * Returns: pointer to FDT
  */
 gpointer
 fu_vbe_device_get_fdt(FuVbeDevice *self)
@@ -79,7 +80,7 @@ fu_vbe_device_get_fdt(FuVbeDevice *self)
  * This node of the FDT contains all the information relating to the device
  *
  * @self: Device to check
- * @return node offset
+ * Returns: node offset
  */
 gint
 fu_vbe_device_get_node(FuVbeDevice *self)
@@ -94,7 +95,7 @@ fu_vbe_device_get_node(FuVbeDevice *self)
  * fu_vbe_device_get_compat_list() - Get the list of compatible strings for a device
  *
  * @self: Device to check
- * @return list of compatible strings
+ * Returns: list of compatible strings
  */
 GList *
 fu_vbe_device_get_compat_list(FuVbeDevice *self)
@@ -109,7 +110,7 @@ fu_vbe_device_get_compat_list(FuVbeDevice *self)
  * fu_vbe_device_get_dir() - Get the director containing method information
  *
  * @self: Device to check
- * @return method being used, e.g. "/var/local/lib/fwupd/vbe"
+ * Returns: method being used, e.g. "/var/local/lib/fwupd/vbe"
  */
 const gchar *
 fu_vbe_device_get_dir(FuVbeDevice *self)
@@ -123,9 +124,6 @@ fu_vbe_device_get_dir(FuVbeDevice *self)
 static void
 fu_vbe_device_init(FuVbeDevice *self)
 {
-	g_autofree gchar *state_dir = NULL;
-	g_autofree gchar *vbe_fname = NULL;
-
 	fu_device_add_flag(FU_DEVICE(self),
 			   FWUPD_DEVICE_FLAG_INTERNAL | FWUPD_DEVICE_FLAG_UPDATABLE |
 			       FWUPD_DEVICE_FLAG_NEEDS_REBOOT | FWUPD_DEVICE_FLAG_CAN_VERIFY |
@@ -152,9 +150,8 @@ fu_vbe_device_probe(FuDevice *fud, GError **error)
 	priv = GET_PRIVATE(self);
 
 	/* Get a list of compatible strings */
-	for (i = 0; compat = fdt_stringlist_get(priv->fdt, 0, "compatible", i, &len), compat; i++) {
+	for (i = 0; compat = fdt_stringlist_get(priv->fdt, 0, "compatible", i, &len), compat; i++)
 		clist = g_list_append(clist, g_strdup(compat));
-	}
 	g_list_free_full(priv->compat_list, g_free);
 	priv->compat_list = clist;
 
@@ -169,9 +166,9 @@ fu_vbe_device_constructed(GObject *obj)
 }
 
 static void
-fu_vbe_device_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec)
+fu_vbe_device_get_property(GObject *obj, guint prop_id, GValue *value, GParamSpec *pspec)
 {
-	FuVbeDevice *self = FU_VBE_DEVICE(object);
+	FuVbeDevice *self = FU_VBE_DEVICE(obj);
 	FuVbeDevicePrivate *priv = GET_PRIVATE(self);
 	switch (prop_id) {
 	case PROP_VBE_METHOD:
@@ -187,15 +184,15 @@ fu_vbe_device_get_property(GObject *object, guint prop_id, GValue *value, GParam
 		g_value_set_string(value, priv->vbe_dir);
 		break;
 	default:
-		G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+		G_OBJECT_WARN_INVALID_PROPERTY_ID(obj, prop_id, pspec);
 		break;
 	}
 }
 
 static void
-fu_vbe_device_set_property(GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec)
+fu_vbe_device_set_property(GObject *obj, guint prop_id, const GValue *value, GParamSpec *pspec)
 {
-	FuVbeDevice *self = FU_VBE_DEVICE(object);
+	FuVbeDevice *self = FU_VBE_DEVICE(obj);
 	FuVbeDevicePrivate *priv = GET_PRIVATE(self);
 	switch (prop_id) {
 	case PROP_VBE_METHOD:
@@ -215,20 +212,21 @@ fu_vbe_device_set_property(GObject *object, guint prop_id, const GValue *value, 
 		priv->vbe_dir = g_strdup(g_value_get_string(value));
 		break;
 	default:
-		G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+		G_OBJECT_WARN_INVALID_PROPERTY_ID(obj, prop_id, pspec);
 		break;
 	}
 }
 
 static void
-fu_vbe_device_finalize(GObject *object)
+fu_vbe_device_finalize(GObject *obj)
 {
-	FuVbeDevice *self = FU_VBE_DEVICE(object);
+	FuVbeDevice *self = FU_VBE_DEVICE(obj);
 	FuVbeDevicePrivate *priv = GET_PRIVATE(self);
 	if (priv->vbe_method)
 		g_free(priv->vbe_method);
+	g_list_free_full(priv->compat_list, g_free);
 
-	G_OBJECT_CLASS(fu_vbe_device_parent_class)->finalize(object);
+	G_OBJECT_CLASS(fu_vbe_device_parent_class)->finalize(obj);
 }
 
 static void
@@ -249,7 +247,7 @@ fu_vbe_device_class_init(FuVbeDeviceClass *klass)
 	pspec =
 	    g_param_spec_string("vbe-method",
 				NULL,
-				"Method used to update firmware (e.g. 'mmc-simple'",
+				"Method used to update firmware (e.g. 'simple'",
 				NULL,
 				G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_NAME);
 	g_object_class_install_property(object_class, PROP_VBE_METHOD, pspec);
@@ -267,9 +265,9 @@ fu_vbe_device_class_init(FuVbeDeviceClass *klass)
 	g_object_class_install_property(object_class, PROP_VBE_FDT, pspec);
 
 	/**
-	 * FuVbeDevice:vbe_method:
+	 * FuVbeDevice:node:
 	 *
-	 * The VBE method being used (e.g. "mmc-simple").
+	 * The node offset containing the method parameters.
 	 */
 	pspec = g_param_spec_int("node",
 				 NULL,
@@ -288,7 +286,7 @@ fu_vbe_device_class_init(FuVbeDeviceClass *klass)
 	pspec =
 	    g_param_spec_string("vbe-dir",
 				NULL,
-				"Directory containing state for each VBE method",
+				"Directory containing state file for each VBE method",
 				NULL,
 				G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_NAME);
 	g_object_class_install_property(object_class, PROP_VBE_DIR, pspec);

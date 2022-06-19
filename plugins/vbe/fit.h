@@ -1,6 +1,10 @@
 /*
  * Library for U-Boot Flat Image Tree (FIT)
  *
+ * This will soon become an independent library but even then it will be some
+ * years before it is considered stable enough to use as such. The intended
+ * repo is https://github.com/devicetree-org/fdt-tools
+ *
  * Copyright (C) 2022 Google LLC
  * Written by Simon Glass <sjg@chromium.org>
  *
@@ -135,7 +139,7 @@ fit_next_cfg(struct fit_info *fit, int preb_cfg);
  *
  * @fit: FIT to check
  * @cfg: Offset of configuration node to check
- * @return name of configuration, or NULL if @cfg is invalid
+ * Returns: name of configuration, or NULL if @cfg is invalid
  */
 const char *
 fit_cfg_name(struct fit_info *fit, int cfg);
@@ -168,7 +172,7 @@ fit_cfg_compat_item(struct fit_info *fit, int cfg, int index);
  * @cfg: Offset of configuration node to check
  * @prop_name: Name of property to look up
  * Returns: Number of images in the configuration, or -ve if the offset is
- * invalid or the proprerty is not found
+ * invalid or the property is not found
  */
 int
 fit_cfg_img_count(struct fit_info *fit, int cfg, const char *prop_name);

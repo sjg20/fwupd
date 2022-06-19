@@ -78,6 +78,22 @@ struct _FuVbeSimpleDevice {
 
 G_DEFINE_TYPE(FuVbeSimpleDevice, fu_vbe_simple_device, FU_TYPE_VBE_DEVICE)
 
+/**
+ * trailing_strtoln_end() - Get the number suffix at the end of a string
+ *
+ * Decodes a string like "abc123" into its two parts so that the base string
+ * "abc" and the trailing number "123" can be obtained.
+ *
+ * For this example, with end == NULL, the function returns 123 and *endp
+ * returns a pointer to the '1' character.
+ *
+ * @str: String to parse
+ * @end: End of string to parse, or NULL to parse the whole string
+ * @endp: Returns a pointer to the first character of the numeric suffix. If
+ *	no number is found, this is @end if not NULL, else its points to the
+ *	string's nul terminator
+ * Returns: the numeric value of the suffix, or -1 if none found
+ */
 static gint
 trailing_strtoln_end(const gchar *str, const gchar *end, gchar const **endp)
 {
@@ -107,7 +123,7 @@ trailing_strtoln_end(const gchar *str, const gchar *end, gchar const **endp)
  * @fdt: Device tree to read from
  * @node: Node offset to read from
  * @prop_name: Name of property to read
- * @return integer value, if found and of the correct size, else -1
+ * Returns: integer value, if found and of the correct size, else -1
  */
 static long
 fdt_get_u32(const gchar *fdt, gint node, const gchar *prop_name)
@@ -128,7 +144,7 @@ fdt_get_u32(const gchar *fdt, gint node, const gchar *prop_name)
  * @fdt: Device tree to read from
  * @node: Node offset to read from
  * @prop_name: Name of property to read
- * @return integer value, if found and of the correct size, else -1
+ * Returns: integer value, if found and of the correct size, else -1
  */
 static long
 fdt_get_u64(const gchar *fdt, gint node, const gchar *prop_name)
@@ -149,9 +165,8 @@ fu_vbe_simple_device_probe(FuDevice *self, GError **error)
 	struct _FuVbeSimpleDevice *dev = FU_VBE_SIMPLE_DEVICE(self);
 	FuVbeDevice *vdev;
 	const void *fdt;
-	const char *end;
 	gint devnum, len;
-	int node;
+	gint node;
 
 	vdev = FU_VBE_DEVICE(self);
 	g_return_val_if_fail(FU_IS_VBE_DEVICE(self), FALSE);
@@ -184,6 +199,8 @@ fu_vbe_simple_device_probe(FuDevice *self, GError **error)
 	if (*dev->storage == '/') {
 		dev->devname = g_strdup(dev->storage);
 	} else {
+		const gchar *end;
+
 		/* obtain the 1 from "mmc1" */
 		devnum = trailing_strtoln_end(dev->storage, NULL, &end);
 		if (devnum == -1) {
@@ -339,7 +356,7 @@ fu_vbe_simple_device_close(FuDevice *device, GError **error)
  * @fit: FIT to check
  * @cfg: Config node in FIT to check
  * @compat_list: List of compatible properties for this model, if any
- * @return 0 if the given cfg matches, -ve if not
+ * Returns: 0 if the given cfg matches, -ve if not
  */
 static gint
 check_config_match(struct fit_info *fit, gint cfg, GList *compat_list)
@@ -350,7 +367,7 @@ check_config_match(struct fit_info *fit, gint cfg, GList *compat_list)
 	for (prio = 0, entry = g_list_first(compat_list); entry;
 	     prio++, entry = g_list_next(entry)) {
 		const gchar *compat, *p, *pend;
-		const char *cmp = entry->data;
+		const gchar *cmp = entry->data;
 		gint ret, len;
 
 		compat = fdt_getprop(fit->blob, cfg, "compatible", &len);
@@ -558,7 +575,7 @@ process_fit(struct fit_info *fit,
 
 	g_debug("model: ");
 	for (entry = g_list_first(compat_list); entry; entry = g_list_next(entry))
-		g_debug("   %s", (char *)entry->data);
+		g_debug("   %s", (gchar *)entry->data);
 
 	for (cfg = fit_first_cfg(fit); cfg > 0; cfg_count++, cfg = fit_next_cfg(fit, cfg)) {
 		gint prio = check_config_match(fit, cfg, compat_list);
@@ -605,13 +622,13 @@ process_fit(struct fit_info *fit,
 }
 
 static gboolean
-fu_vbe_simple_device_write_firmware(FuDevice *device,
+fu_vbe_simple_device_write_firmware(FuDevice *self,
 				    FuFirmware *firmware,
 				    FuProgress *progress,
 				    FwupdInstallFlags flags,
 				    GError **error)
 {
-	struct _FuVbeSimpleDevice *dev = FU_VBE_SIMPLE_DEVICE(device);
+	struct _FuVbeSimpleDevice *dev = FU_VBE_SIMPLE_DEVICE(self);
 	g_autoptr(GBytes) bytes = NULL;
 	struct fit_info fit;
 	GList *compat_list;
@@ -620,8 +637,8 @@ fu_vbe_simple_device_write_firmware(FuDevice *device,
 	gsize size = 0;
 	gint ret;
 
-	vdev = FU_VBE_DEVICE(device);
-	g_return_val_if_fail(FU_IS_VBE_DEVICE(device), FALSE);
+	vdev = FU_VBE_DEVICE(self);
+	g_return_val_if_fail(FU_IS_VBE_DEVICE(self), FALSE);
 
 	compat_list = fu_vbe_device_get_compat_list(vdev);
 
@@ -643,24 +660,21 @@ fu_vbe_simple_device_write_firmware(FuDevice *device,
 
 	if (!process_fit(&fit, dev, compat_list, progress, error))
 		return FALSE;
-	g_debug("write done");
 
 	/* success */
 	return TRUE;
 }
 
 static GBytes *
-fu_vbe_simple_device_upload(FuDevice *device, FuProgress *progress, GError **error)
+fu_vbe_simple_device_upload(FuDevice *self, FuProgress *progress, GError **error)
 {
-	struct _FuVbeSimpleDevice *dev = FU_VBE_SIMPLE_DEVICE(device);
+	struct _FuVbeSimpleDevice *dev = FU_VBE_SIMPLE_DEVICE(self);
 	g_autoptr(GPtrArray) chunks = NULL;
 	gsize blksize = 0x100000;
 	gpointer buf;
 	GBytes *out;
 	off_t offset;
 	gint ret;
-
-	g_debug("upload");
 
 	/* notify UI */
 	fu_progress_set_id(progress, G_STRLOC);
@@ -738,7 +752,11 @@ fu_vbe_simple_device_init(FuVbeSimpleDevice *self)
 }
 
 FuDevice *
-fu_vbe_simple_device_new(FuContext *ctx, const gchar *vbe_method, const gchar *fdt, gint node, const gchar *vbe_dir)
+fu_vbe_simple_device_new(FuContext *ctx,
+			 const gchar *vbe_method,
+			 const gchar *fdt,
+			 gint node,
+			 const gchar *vbe_dir)
 {
 	return FU_DEVICE(g_object_new(FU_TYPE_VBE_SIMPLE_DEVICE,
 				      "context",
@@ -749,8 +767,8 @@ fu_vbe_simple_device_new(FuContext *ctx, const gchar *vbe_method, const gchar *f
 				      fdt,
 				      "node",
 				      node,
-			       "vbe-dir",
-			       vbe_dir,
+				      "vbe-dir",
+				      vbe_dir,
 				      NULL));
 }
 
@@ -769,9 +787,9 @@ fu_vbe_simple_device_constructed(GObject *obj)
 }
 
 static void
-fu_vbe_simple_device_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec)
+fu_vbe_simple_device_get_property(GObject *obj, guint prop_id, GValue *value, GParamSpec *pspec)
 {
-	FuVbeSimpleDevice *self = FU_VBE_SIMPLE_DEVICE(object);
+	FuVbeSimpleDevice *self = FU_VBE_SIMPLE_DEVICE(obj);
 	switch (prop_id) {
 	case PROP_DEVNAME:
 		g_value_set_string(value, self->devname);
@@ -783,18 +801,18 @@ fu_vbe_simple_device_get_property(GObject *object, guint prop_id, GValue *value,
 		g_value_set_int64(value, self->area_size);
 		break;
 	default:
-		G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+		G_OBJECT_WARN_INVALID_PROPERTY_ID(obj, prop_id, pspec);
 		break;
 	}
 }
 
 static void
-fu_vbe_simple_device_set_property(GObject *object,
+fu_vbe_simple_device_set_property(GObject *obj,
 				  guint prop_id,
 				  const GValue *value,
 				  GParamSpec *pspec)
 {
-	FuVbeSimpleDevice *self = FU_VBE_SIMPLE_DEVICE(object);
+	FuVbeSimpleDevice *self = FU_VBE_SIMPLE_DEVICE(obj);
 	switch (prop_id) {
 	case PROP_DEVNAME:
 		if (self->devname)
@@ -808,19 +826,19 @@ fu_vbe_simple_device_set_property(GObject *object,
 		self->area_size = g_value_get_int64(value);
 		break;
 	default:
-		G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+		G_OBJECT_WARN_INVALID_PROPERTY_ID(obj, prop_id, pspec);
 		break;
 	}
 }
 
 static void
-fu_vbe_simple_device_finalize(GObject *object)
+fu_vbe_simple_device_finalize(GObject *obj)
 {
-	FuVbeSimpleDevice *self = FU_VBE_SIMPLE_DEVICE(object);
+	FuVbeSimpleDevice *self = FU_VBE_SIMPLE_DEVICE(obj);
 	if (self->devname)
 		g_free(self->devname);
 
-	G_OBJECT_CLASS(fu_vbe_simple_device_parent_class)->finalize(object);
+	G_OBJECT_CLASS(fu_vbe_simple_device_parent_class)->finalize(obj);
 }
 
 static void

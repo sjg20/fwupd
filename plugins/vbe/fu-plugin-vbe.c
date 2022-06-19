@@ -72,7 +72,7 @@ const struct VbeDriver driver_list[] = {
 };
 
 /** Information about an update method with an associated device
- * @vbe_method: Method name, e.g. "simple"
+ * @vbe_method: Method name, e.g. "simple" if compatible is "fwupd,vbe-simple"
  * @node: Offset of this method in device tree (so it can read its info)
  */
 struct FuVbeMethod {
@@ -91,8 +91,9 @@ static void
 fu_plugin_vbe_destroy(FuPlugin *plugin)
 {
 	FuPluginData *priv = fu_plugin_get_data(plugin);
-	if (priv->vbe_dir)
-		g_free(priv->vbe_dir);
+	g_free(priv->vbe_dir);
+	g_free(priv->fdt);
+	g_list_free_full(priv->methods, g_free);
 }
 
 /**
@@ -113,7 +114,7 @@ vbe_locate_method(gchar *fdt, gint node, struct FuVbeMethod **methp, GError **er
 	struct FuVbeMethod *meth = NULL;
 	const struct VbeDriver *driver;
 	const gchar *method_name;
-	const char *compat, *p;
+	const gchar *compat, *p;
 	gint len;
 
 	/* we expect 'fwupd,vbe-<driver>' */
@@ -315,7 +316,6 @@ fu_plugin_vbe_coldplug(FuPlugin *plugin, FuProgress *progress, GError **error)
 
 		meth = entry->data;
 		driver = meth->driver;
-		g_debug("%s: %s", __func__, priv->vbe_dir);
 		dev = driver->new_func(ctx, meth->vbe_method, priv->fdt, meth->node, priv->vbe_dir);
 
 		fu_device_set_id(dev, meth->vbe_method);

@@ -162,6 +162,9 @@ fdtdump /var/local/lib/fwupd/vbe/simple.dtb
 
 ## Available VBE methods
 
+Note that all VBE methods must subclass FuVbeDevice since it provides access to
+the device tree and the VBE directory, among other things.
+
 At present only one method is available:
 
 * fwupd,vbe-simple - writes a single copy of the firmware to media
@@ -212,9 +215,9 @@ The fields are as follows:
 * vbe-driver - the actual VBE method being used
 * last-update - information about the last update
 * finish-time - the unix time of the last update, i.e. seconds since 1970, as a
-  64-bit value (0 if no previous update)
+    64-bit value (0 if no previous update)
 * cur-version - the current installed version, missing if there is none or it is
-  not known
+    not known
 * status - status of the update. The only supported value is 'completed'
 
 ## Adding new VBE methods

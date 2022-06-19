@@ -18,6 +18,7 @@
 
 #include "fit.h"
 
+/* Node and property names used by FIT */
 #define FIT_CONFIG_PATH "/configurations"
 #define FIT_IMAGE_PATH	"/images"
 
