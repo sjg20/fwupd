@@ -13,65 +13,9 @@
 
 #include <glib-2.0/glib.h>
 
+#include "config.h"
 #include "fit.h"
 #include "fit_test.h"
-
-/* Some helper macros for checking test conditions */
-#define CALL(x)                                                                                    \
-	{                                                                                          \
-		int iret;                                                                          \
-		iret = (x);                                                                        \
-		if (iret) {                                                                        \
-			fprintf(stderr, "line %d: %s: %d\n", __LINE__, #x, iret);                  \
-			return iret;                                                               \
-		}                                                                                  \
-	}
-#define CHECK(x)                                                                                   \
-	{                                                                                          \
-		int iret;                                                                          \
-		iret = (x);                                                                        \
-		if (!iret) {                                                                       \
-			fprintf(stderr, "line %d: %s: %d\n", __LINE__, #x, iret);                  \
-			return 1;                                                                  \
-		}                                                                                  \
-	}
-#define CHECKEQ(y, x)                                                                              \
-	{                                                                                          \
-		int iret;                                                                          \
-		iret = (x);                                                                        \
-		if (y != iret) {                                                                   \
-			fprintf(stderr,                                                            \
-				"line %d: %s: expect %d, got %d\n",                                \
-				__LINE__,                                                          \
-				#x,                                                                \
-				y,                                                                 \
-				iret);                                                             \
-			return 1;                                                                  \
-		}                                                                                  \
-	}
-#define CHECKEQ_STR(y, x)                                                                          \
-	{                                                                                          \
-		const char *sret;                                                                  \
-		sret = (x);                                                                        \
-		if (!sret || strcmp(y, sret)) {                                                    \
-			fprintf(stderr,                                                            \
-				"line %d: %s: expect %s, got %s\n",                                \
-				__LINE__,                                                          \
-				#x,                                                                \
-				y,                                                                 \
-				sret ? sret : "(null)");                                           \
-			return 1;                                                                  \
-		}                                                                                  \
-	}
-#define CHECKEQ_NULL(x)                                                                            \
-	{                                                                                          \
-		const void *pret;                                                                  \
-		pret = (x);                                                                        \
-		if (pret) {                                                                        \
-			fprintf(stderr, "line %d: %s: expect null, got %p\n", __LINE__, #x, pret); \
-			return 1;                                                                  \
-		}                                                                                  \
-	}
 
 /**
  * enum gen_t: Options to control the output of the test FIT
@@ -123,10 +67,15 @@ enum gen_t {
 /* Size of the test FIT we use */
 #define FIT_SIZE 1024
 
-/* Buffer containing the test FIT */
-static char fit_buf[FIT_SIZE];
-
+/**
+ * struct FitTest - Working data used by FIT tests
+ *
+ * @fit: fit_info structure to use
+ * @buf: buffer containing the test FIT
+ */
 typedef struct FitTest {
+	struct fit_info fit;
+	char buf[FIT_SIZE];
 } FitTest;
 
 /**
@@ -137,8 +86,7 @@ typedef struct FitTest {
  * @flags: Mask of 'enum gen_t' controlling what is generated
  *
  */
-static int
-build_fit(char *buf, int size, int flags)
+static int build_fit(char *buf, int size, int flags)
 {
 	const int data_offset = 4;
 
@@ -254,40 +202,42 @@ build_fit(char *buf, int size, int flags)
 /* Test an invalid FIT */
 static void test_base(FitTest *ftest, gconstpointer user_data)
 {
-	struct fit_info s_fit, *fit = &s_fit;
+	struct fit_info *fit = &ftest->fit;
+	char *buf = ftest->buf;
 
 	/* Bad FIT */
-	strcpy(fit_buf, "junk");
-	g_assert_cmpint(-FITE_BAD_HEADER, ==, fit_open(fit, fit_buf, FIT_SIZE));
+	strcpy(buf, "junk");
+	g_assert_cmpint(-FITE_BAD_HEADER, ==, fit_open(fit, buf, FIT_SIZE));
 
 	/* FIT with missing /configurations */
-	g_assert_cmpint(0, ==, build_fit(fit_buf, FIT_SIZE, 0));
-	g_assert_cmpint(0, ==, fit_open(fit, fit_buf, FIT_SIZE));
+	g_assert_cmpint(0, ==, build_fit(buf, FIT_SIZE, 0));
+	g_assert_cmpint(0, ==, fit_open(fit, buf, FIT_SIZE));
 	fit_close(fit);
 }
 
 /* Test a FIT with configuration but not images */
 static void test_cfg(FitTest *ftest, gconstpointer user_data)
 {
-	struct fit_info s_fit, *fit = &s_fit;
+	struct fit_info *fit = &ftest->fit;
+	char *buf = ftest->buf;
 	int cfg;
 
-	g_assert_cmpint(0, ==, build_fit(fit_buf, FIT_SIZE, 0));
-	g_assert_cmpint(0, ==, fit_open(fit, fit_buf, FIT_SIZE));
+	g_assert_cmpint(0, ==, build_fit(buf, FIT_SIZE, 0));
+	g_assert_cmpint(0, ==, fit_open(fit, buf, FIT_SIZE));
 	cfg = fit_first_cfg(fit);
 	g_assert_cmpint(-FITE_NO_CONFIG_NODE, ==, cfg);
 
 	/* FIT with missing configuration */
-	g_assert_cmpint(0, ==, build_fit(fit_buf, FIT_SIZE, GEN_CFGS));
-	g_assert_cmpint(0, ==, fit_open(fit, fit_buf, FIT_SIZE));
+	g_assert_cmpint(0, ==, build_fit(buf, FIT_SIZE, GEN_CFGS));
+	g_assert_cmpint(0, ==, fit_open(fit, buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
 	g_assert_cmpint(-FITE_NOT_FOUND, ==, cfg);
 	fit_close(fit);
 
 	/* Normal FIT without compatible string */
-	g_assert_cmpint(0, ==, build_fit(fit_buf, FIT_SIZE, GEN_CFGS | GEN_CFG));
-	g_assert_cmpint(0, ==, fit_open(fit, fit_buf, FIT_SIZE));
+	g_assert_cmpint(0, ==, build_fit(buf, FIT_SIZE, GEN_CFGS | GEN_CFG));
+	g_assert_cmpint(0, ==, fit_open(fit, buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
 	g_assert_cmpint(cfg, >, 0);
@@ -297,8 +247,8 @@ static void test_cfg(FitTest *ftest, gconstpointer user_data)
 	fit_close(fit);
 
 	/* Normal FIT with compatible string but no /images node */
-	g_assert_cmpint(0, ==, build_fit(fit_buf, FIT_SIZE, GEN_CFGS | GEN_CFG | GEN_COMPAT));
-	g_assert_cmpint(0, ==, fit_open(fit, fit_buf, FIT_SIZE));
+	g_assert_cmpint(0, ==, build_fit(buf, FIT_SIZE, GEN_CFGS | GEN_CFG | GEN_COMPAT));
+	g_assert_cmpint(0, ==, fit_open(fit, buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
 	g_assert_cmpint(cfg, >, 0);
@@ -313,16 +263,16 @@ static void test_cfg(FitTest *ftest, gconstpointer user_data)
 	g_assert_cmpint(-FITE_NO_IMAGES_NODE, ==, fit_cfg_img(fit, cfg, "firmware", 0));
 	fit_close(fit);
 }
-#if 0
 /* Normal FIT with compatible string and image but no data */
 static void test_img(FitTest *ftest, gconstpointer user_data)
 {
-	struct fit_info s_fit, *fit = &s_fit;
+	struct fit_info *fit = &ftest->fit;
+	char *buf = ftest->buf;
 	int size, cfg, img;
 	const char *data;
 
-	g_assert_cmpint(0, ==, build_fit(fit_buf, FIT_SIZE, GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS));
-	g_assert_cmpint(0, ==, fit_open(fit, fit_buf, FIT_SIZE));
+	g_assert_cmpint(0, ==, build_fit(buf, FIT_SIZE, GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS));
+	g_assert_cmpint(0, ==, fit_open(fit, buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
 	g_assert_cmpint(-FITE_MISSING_IMAGE, ==, fit_cfg_img(fit, cfg, "firmware", 0));
@@ -330,12 +280,12 @@ static void test_img(FitTest *ftest, gconstpointer user_data)
 	fit_close(fit);
 
 	/* With an image as well */
-	g_assert_cmpint(0, ==, build_fit(fit_buf, FIT_SIZE, GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG));
-	g_assert_cmpint(0, ==, fit_open(fit, fit_buf, FIT_SIZE));
+	g_assert_cmpint(0, ==, build_fit(buf, FIT_SIZE, GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG));
+	g_assert_cmpint(0, ==, fit_open(fit, buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
 	img = fit_cfg_img(fit, cfg, "firmware", 0);
-	g_assert_cmpint(0, ==, img > 0);
+	g_assert_cmpint(img, >, 0);
 
 	g_assert_cmpstr("firmware-1", ==, fit_img_name(fit, img));
 	data = fit_img_data(fit, img, &size);
@@ -345,47 +295,45 @@ static void test_img(FitTest *ftest, gconstpointer user_data)
 }
 
 /* Normal FIT with data as well */
-static int
-test_data(void)
+static void test_data(FitTest *ftest, gconstpointer user_data)
 {
-	struct fit_info s_fit, *fit = &s_fit;
+	struct fit_info *fit = &ftest->fit;
+	char *buf = ftest->buf;
 	int size, cfg, img;
 	const char *data;
 
 	/* With data as well */
-	g_assert_cmpint(0, ==, build_fit(fit_buf,
+	g_assert_cmpint(0, ==, build_fit(buf,
 		       FIT_SIZE,
 		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_DATA));
-	g_assert_cmpint(0, ==, fit_open(fit, fit_buf, FIT_SIZE));
+	g_assert_cmpint(0, ==, fit_open(fit, buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
 	img = fit_cfg_img(fit, cfg, "firmware", 0);
-	g_assert_cmpint(0, ==, img > 0);
+	g_assert_cmpint(img, >, 0);
 
 	g_assert_cmpstr("firmware-1", ==, fit_img_name(fit, img));
 	data = fit_img_data(fit, img, &size);
 	g_assert_cmpint(3, ==, size);
-	g_assert_cmpint(0, ==, !strncmp(data, "abc", 3));
+	g_assert_cmpint(0, ==, strncmp(data, "abc", 3));
 
 	cfg = fit_next_cfg(fit, cfg);
 	g_assert_cmpint(-FITE_NOT_FOUND, ==, cfg);
-
-	return 0;
 }
 
 /* Normal FIT with external data */
-static int
-test_ext_data(void)
+static void test_ext_data(FitTest *ftest, gconstpointer user_data)
 {
-	struct fit_info s_fit, *fit = &s_fit;
+	struct fit_info *fit = &ftest->fit;
+	char *buf = ftest->buf;
 	int size, cfg, img;
 	const char *data;
 
 	/* Test with missing data-size property */
-	g_assert_cmpint(0, ==, build_fit(fit_buf,
+	g_assert_cmpint(0, ==, build_fit(buf,
 		       FIT_SIZE,
 		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_EXT_DATA));
-	g_assert_cmpint(0, ==, fit_open(fit, fit_buf, FIT_SIZE));
+	g_assert_cmpint(0, ==, fit_open(fit, buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
 	img = fit_cfg_img(fit, cfg, "firmware", 0);
@@ -396,11 +344,11 @@ test_ext_data(void)
 	fit_close(fit);
 
 	/* Test with bad data-size property */
-	g_assert_cmpint(0, ==, build_fit(fit_buf,
+	g_assert_cmpint(0, ==, build_fit(buf,
 		       FIT_SIZE,
 		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_EXT_DATA |
 			   GEN_BAD_DATA_SIZE));
-	g_assert_cmpint(0, ==, fit_open(fit, fit_buf, FIT_SIZE));
+	g_assert_cmpint(0, ==, fit_open(fit, buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
 	img = fit_cfg_img(fit, cfg, "firmware", 0);
@@ -411,11 +359,11 @@ test_ext_data(void)
 	fit_close(fit);
 
 	/* Test with bad data-offset property */
-	g_assert_cmpint(0, ==, build_fit(fit_buf,
+	g_assert_cmpint(0, ==, build_fit(buf,
 		       FIT_SIZE,
 		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_EXT_DATA |
 			   GEN_DATA_SIZE | GEN_BAD_DATA_OFFSET));
-	g_assert_cmpint(0, ==, fit_open(fit, fit_buf, FIT_SIZE));
+	g_assert_cmpint(0, ==, fit_open(fit, buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
 	img = fit_cfg_img(fit, cfg, "firmware", 0);
@@ -426,43 +374,41 @@ test_ext_data(void)
 	fit_close(fit);
 
 	/* Test with valid data-size property */
-	g_assert_cmpint(0, ==, build_fit(fit_buf,
+	g_assert_cmpint(0, ==, build_fit(buf,
 		       FIT_SIZE,
 		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_EXT_DATA |
 			   GEN_DATA_SIZE));
-	g_assert_cmpint(0, ==, fit_open(fit, fit_buf, FIT_SIZE));
+	g_assert_cmpint(0, ==, fit_open(fit, buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
 	img = fit_cfg_img(fit, cfg, "firmware", 0);
 
 	data = fit_img_data(fit, img, &size);
 	g_assert_cmpint(3, ==, size);
-	g_assert_cmpint(0, ==, data != NULL);
-	g_assert_cmpint(0, ==, !strncmp(data, "abc", 3));
+	g_assert_nonnull(data);
+	g_assert_cmpint(0, ==, strncmp(data, "abc", 3));
 	fit_close(fit);
-
-	return 0;
 }
 
 /* Check data with CRC32 */
-static int
-test_crc32(void)
+static void test_crc32(FitTest *ftest, gconstpointer user_data)
 {
-	struct fit_info s_fit, *fit = &s_fit;
+	struct fit_info *fit = &ftest->fit;
+	char *buf = ftest->buf;
 	int size, cfg, img;
 	const char *data;
 	int node;
 
 	/* Missing 'algo' property gives an error when 'value' is provided */
-	g_assert_cmpint(0, ==, build_fit(fit_buf,
+	g_assert_cmpint(0, ==, build_fit(buf,
 		       FIT_SIZE,
 		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_DATA |
 			   GEN_CRC32_VAL));
-	g_assert_cmpint(0, ==, fit_open(fit, fit_buf, FIT_SIZE));
+	g_assert_cmpint(0, ==, fit_open(fit, buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
 	img = fit_cfg_img(fit, cfg, "firmware", 0);
-	g_assert_cmpint(0, ==, img > 0);
+	g_assert_cmpint(img, >, 0);
 
 	g_assert_cmpstr("firmware-1", ==, fit_img_name(fit, img));
 	data = fit_img_data(fit, img, &size);
@@ -471,15 +417,15 @@ test_crc32(void)
 	fit_close(fit);
 
 	/* Unknown 'algo' property gives an error when 'value' is provided */
-	g_assert_cmpint(0, ==, build_fit(fit_buf,
+	g_assert_cmpint(0, ==, build_fit(buf,
 		       FIT_SIZE,
 		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_DATA |
 			   GEN_BAD_ALGO | GEN_CRC32_VAL));
-	g_assert_cmpint(0, ==, fit_open(fit, fit_buf, FIT_SIZE));
+	g_assert_cmpint(0, ==, fit_open(fit, buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
 	img = fit_cfg_img(fit, cfg, "firmware", 0);
-	g_assert_cmpint(0, ==, img > 0);
+	g_assert_cmpint(img, >, 0);
 
 	g_assert_cmpstr("firmware-1", ==, fit_img_name(fit, img));
 	data = fit_img_data(fit, img, &size);
@@ -488,37 +434,37 @@ test_crc32(void)
 	fit_close(fit);
 
 	/* Missing 'value' property means the hash is ignored */
-	g_assert_cmpint(0, ==, build_fit(fit_buf,
+	g_assert_cmpint(0, ==, build_fit(buf,
 		       FIT_SIZE,
 		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_DATA |
 			   GEN_CRC32_ALGO));
-	g_assert_cmpint(0, ==, fit_open(fit, fit_buf, FIT_SIZE));
+	g_assert_cmpint(0, ==, fit_open(fit, buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
 	img = fit_cfg_img(fit, cfg, "firmware", 0);
-	g_assert_cmpint(0, ==, img > 0);
+	g_assert_cmpint(img, >, 0);
 
 	g_assert_cmpstr("firmware-1", ==, fit_img_name(fit, img));
 	data = fit_img_data(fit, img, &size);
-	g_assert_cmpint(0, ==, data != NULL);
-	g_assert_cmpint(0, ==, !strncmp(data, "abc", 3));
+	g_assert_nonnull(data);
+	g_assert_cmpint(0, ==, strncmp(data, "abc", 3));
 
 	/* ...but we can see that the hash value as missing */
 	node = fdt_first_subnode(fit->blob, img);
-	g_assert_cmpint(0, ==, node > 0);
+	g_assert_cmpint(node, >, 0);
 	g_assert_cmpint(-FITE_MISSING_VALUE, ==, fit_check_hash(fit, node, "abc", 3));
 	fit_close(fit);
 
 	/* 'value' and 'algo' present but the value size is wrong */
-	g_assert_cmpint(0, ==, build_fit(fit_buf,
+	g_assert_cmpint(0, ==, build_fit(buf,
 		       FIT_SIZE,
 		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_DATA |
 			   GEN_CRC32_ALGO | GEN_CRC32_BAD_SIZE));
-	g_assert_cmpint(0, ==, fit_open(fit, fit_buf, FIT_SIZE));
+	g_assert_cmpint(0, ==, fit_open(fit, buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
 	img = fit_cfg_img(fit, cfg, "firmware", 0);
-	g_assert_cmpint(0, ==, img > 0);
+	g_assert_cmpint(img, >, 0);
 
 	g_assert_cmpstr("firmware-1", ==, fit_img_name(fit, img));
 	data = fit_img_data(fit, img, &size);
@@ -527,15 +473,15 @@ test_crc32(void)
 	fit_close(fit);
 
 	/* 'value' and 'algo' present but the value is wrong */
-	g_assert_cmpint(0, ==, build_fit(fit_buf,
+	g_assert_cmpint(0, ==, build_fit(buf,
 		       FIT_SIZE,
 		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_DATA |
 			   GEN_CRC32_ALGO | GEN_CRC32_BAD_VAL));
-	g_assert_cmpint(0, ==, fit_open(fit, fit_buf, FIT_SIZE));
+	g_assert_cmpint(0, ==, fit_open(fit, buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
 	img = fit_cfg_img(fit, cfg, "firmware", 0);
-	g_assert_cmpint(0, ==, img > 0);
+	g_assert_cmpint(img, >, 0);
 
 	g_assert_cmpstr("firmware-1", ==, fit_img_name(fit, img));
 	data = fit_img_data(fit, img, &size);
@@ -544,39 +490,37 @@ test_crc32(void)
 	fit_close(fit);
 
 	/* 'value' and 'algo' present with correct value */
-	g_assert_cmpint(0, ==, build_fit(fit_buf,
+	g_assert_cmpint(0, ==, build_fit(buf,
 		       FIT_SIZE,
 		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_DATA |
 			   GEN_CRC32_ALGO | GEN_CRC32_VAL));
-	g_assert_cmpint(0, ==, fit_open(fit, fit_buf, FIT_SIZE));
+	g_assert_cmpint(0, ==, fit_open(fit, buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
 	img = fit_cfg_img(fit, cfg, "firmware", 0);
-	g_assert_cmpint(0, ==, img > 0);
+	g_assert_cmpint(img, >, 0);
 
 	g_assert_cmpstr("firmware-1", ==, fit_img_name(fit, img));
 	data = fit_img_data(fit, img, &size);
 	g_assert_null(data);
 	g_assert_cmpint(-FITE_HASH_MISMATCH, ==, size);
 	fit_close(fit);
-
-	return 0;
 }
 
 /* Check data with store-offset */
-static int
-test_store_offset(void)
+static void test_store_offset(FitTest *ftest, gconstpointer user_data)
 {
-	struct fit_info s_fit, *fit = &s_fit;
+	struct fit_info *fit = &ftest->fit;
+	char *buf = ftest->buf;
 	int cfg, img;
 
 	/* Missing 'store-offset' property */
-	g_assert_cmpint(0, ==, build_fit(fit_buf, FIT_SIZE, GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG));
-	g_assert_cmpint(0, ==, fit_open(fit, fit_buf, FIT_SIZE));
+	g_assert_cmpint(0, ==, build_fit(buf, FIT_SIZE, GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG));
+	g_assert_cmpint(0, ==, fit_open(fit, buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
 	img = fit_cfg_img(fit, cfg, "firmware", 0);
-	g_assert_cmpint(0, ==, img > 0);
+	g_assert_cmpint(img, >, 0);
 
 	g_assert_cmpstr("firmware-1", ==, fit_img_name(fit, img));
 	g_assert_cmpint(-FITE_NOT_FOUND, ==, fit_img_store_offset(fit, img));
@@ -584,108 +528,72 @@ test_store_offset(void)
 
 	/* Negative 'store-offset' property */
 	g_assert_cmpint(0, ==,
-	    build_fit(fit_buf,
+	    build_fit(buf,
 		      FIT_SIZE,
 		      GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_BAD_STORE_OFFSET));
-	g_assert_cmpint(0, ==, fit_open(fit, fit_buf, FIT_SIZE));
+	g_assert_cmpint(0, ==, fit_open(fit, buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
 	img = fit_cfg_img(fit, cfg, "firmware", 0);
-	g_assert_cmpint(0, ==, img > 0);
+	g_assert_cmpint(img, >, 0);
 
 	g_assert_cmpstr("firmware-1", ==, fit_img_name(fit, img));
 	g_assert_cmpint(-FITE_NEGATIVE_OFFSET, ==, fit_img_store_offset(fit, img));
 	fit_close(fit);
 
 	/* Valid 'store-offset' property */
-	g_assert_cmpint(0, ==, build_fit(fit_buf,
+	g_assert_cmpint(0, ==, build_fit(buf,
 		       FIT_SIZE,
 		       GEN_CFGS | GEN_CFG | GEN_COMPAT | GEN_IMGS | GEN_IMG | GEN_STORE_OFFSET));
-	g_assert_cmpint(0, ==, fit_open(fit, fit_buf, FIT_SIZE));
+	g_assert_cmpint(0, ==, fit_open(fit, buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
 	img = fit_cfg_img(fit, cfg, "firmware", 0);
-	g_assert_cmpint(0, ==, img > 0);
+	g_assert_cmpint(img, >, 0);
 
 	g_assert_cmpstr("firmware-1", ==, fit_img_name(fit, img));
 	g_assert_cmpint(0x1000, ==, fit_img_store_offset(fit, img));
 	fit_close(fit);
-
-	return 0;
 }
 
 /* Check getting config version */
-static int
-test_version(void)
+static void test_version(FitTest *ftest, gconstpointer user_data)
 {
-	struct fit_info s_fit, *fit = &s_fit;
+	struct fit_info *fit = &ftest->fit;
+	char *buf = ftest->buf;
 	const char *version;
 	int cfg;
 
 	/* Missing 'version' property */
-	g_assert_cmpint(0, ==, build_fit(fit_buf, FIT_SIZE, GEN_CFGS | GEN_CFG));
-	g_assert_cmpint(0, ==, fit_open(fit, fit_buf, FIT_SIZE));
+	g_assert_cmpint(0, ==, build_fit(buf, FIT_SIZE, GEN_CFGS | GEN_CFG));
+	g_assert_cmpint(0, ==, fit_open(fit, buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
 	version = fit_cfg_version(fit, cfg);
 	g_assert_null(version);
 
 	/* With version */
-	g_assert_cmpint(0, ==, build_fit(fit_buf, FIT_SIZE, GEN_CFGS | GEN_CFG | GEN_VERSION));
-	g_assert_cmpint(0, ==, fit_open(fit, fit_buf, FIT_SIZE));
+	g_assert_cmpint(0, ==, build_fit(buf, FIT_SIZE, GEN_CFGS | GEN_CFG | GEN_VERSION));
+	g_assert_cmpint(0, ==, fit_open(fit, buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
 	version = fit_cfg_version(fit, cfg);
 	g_assert_cmpstr("1.2.3", ==, version);
-
-	return 0;
-}
-#endif
-/*
-int
-fit_test(void)
-{
-// 	g_assert_cmpint(0, ==, test_base());
-	g_assert_cmpint(0, ==, test_cfg());
-	g_assert_cmpint(0, ==, test_img());
-	g_assert_cmpint(0, ==, test_data());
-	g_assert_cmpint(0, ==, test_ext_data());
-	g_assert_cmpint(0, ==, test_crc32());
-	g_assert_cmpint(0, ==, test_store_offset());
-	g_assert_cmpint(0, ==, test_version());
-
-	return 0;
-}
-*/
-static void
-test_set_up(FitTest *ftest, gconstpointer params)
-{
 }
 
-static void
-test_tear_down(FitTest *ftest, gconstpointer user_data)
-{
-}
-
-int
-main(int argc, char **argv)
+int main(int argc, char **argv)
 {
 	g_test_init(&argc, &argv, NULL);
 	g_log_set_fatal_mask(NULL, G_LOG_LEVEL_ERROR | G_LOG_LEVEL_CRITICAL);
 
-	g_test_add("/fit/base",
-		   FitTest,
-		   NULL,
-		   test_set_up,
-		   test_base,
-		   test_tear_down);
-
-	g_test_add("/fit/cfg",
-		   FitTest,
-		   NULL,
-		   test_set_up,
-		   test_cfg,
-		   test_tear_down);
+	g_test_add("/fit/base", FitTest, NULL, NULL, test_base, NULL);
+	g_test_add("/fit/cfg", FitTest, NULL, NULL, test_cfg, NULL);
+	g_test_add("/fit/img", FitTest, NULL, NULL, test_img, NULL);
+	g_test_add("/fit/data", FitTest, NULL, NULL, test_data, NULL);
+	g_test_add("/fit/ext_data", FitTest, NULL, NULL, test_ext_data, NULL);
+	g_test_add("/fit/crc32", FitTest, NULL, NULL, test_crc32, NULL);
+	g_test_add("/fit/store_offset", FitTest, NULL, NULL, test_store_offset, NULL);
+	g_test_add("/fit/version", FitTest, NULL, NULL, test_version, NULL);
 
 	return g_test_run();
 }

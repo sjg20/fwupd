@@ -14,6 +14,7 @@
 #include <libfdt.h>
 #include <zlib.h>
 
+#include "config.h"
 #include "fit.h"
 
 /* Node and property names used by FIT */

@@ -48,7 +48,7 @@ if get_option('tests') and run_sanitize_unsafe_tests and umockdev.found() and gi
       'fit.c',
     ],
     include_directories : [
-      fwupdplugin_incdir,
+      root_incdir,
     ],
     dependencies : [
       glib2,
