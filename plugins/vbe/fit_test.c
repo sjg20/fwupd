@@ -275,14 +275,14 @@ static void test_cfg(FitTest *ftest, gconstpointer user_data)
 	g_assert_cmpint(0, ==, build_fit(fit_buf, FIT_SIZE, 0));
 	g_assert_cmpint(0, ==, fit_open(fit, fit_buf, FIT_SIZE));
 	cfg = fit_first_cfg(fit);
-	CHECKEQ(-FITE_NO_CONFIG_NODE, cfg);
+	g_assert_cmpint(-FITE_NO_CONFIG_NODE, ==, cfg);
 
 	/* FIT with missing configuration */
 	g_assert_cmpint(0, ==, build_fit(fit_buf, FIT_SIZE, GEN_CFGS));
 	g_assert_cmpint(0, ==, fit_open(fit, fit_buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
-	CHECKEQ(-FITE_NOT_FOUND, cfg);
+	g_assert_cmpint(-FITE_NOT_FOUND, ==, cfg);
 	fit_close(fit);
 
 	/* Normal FIT without compatible string */
@@ -306,17 +306,16 @@ static void test_cfg(FitTest *ftest, gconstpointer user_data)
 
 	CHECKEQ_STR("mary", fit_cfg_compat_item(fit, cfg, 0));
 
-	CHECKEQ(-FITE_NOT_FOUND, fit_cfg_img_count(fit, cfg, "fred"));
-	CHECKEQ(-FITE_NOT_FOUND, fit_cfg_img(fit, cfg, "fred", 0));
-	CHECKEQ(1, fit_cfg_img_count(fit, cfg, "firmware"));
+	g_assert_cmpint(-FITE_NOT_FOUND, ==, fit_cfg_img_count(fit, cfg, "fred"));
+	g_assert_cmpint(-FITE_NOT_FOUND, ==, fit_cfg_img(fit, cfg, "fred", 0));
+	g_assert_cmpint(1, ==, fit_cfg_img_count(fit, cfg, "firmware"));
 
-	CHECKEQ(-FITE_NO_IMAGES_NODE, fit_cfg_img(fit, cfg, "firmware", 0));
+	g_assert_cmpint(-FITE_NO_IMAGES_NODE, ==, fit_cfg_img(fit, cfg, "firmware", 0));
 	fit_close(fit);
 }
-
+#if 0
 /* Normal FIT with compatible string and image but no data */
-static int
-test_img(void)
+static void test_img(FitTest *ftest, gconstpointer user_data)
 {
 	struct fit_info s_fit, *fit = &s_fit;
 	int size, cfg, img;
@@ -326,8 +325,8 @@ test_img(void)
 	g_assert_cmpint(0, ==, fit_open(fit, fit_buf, FIT_SIZE));
 
 	cfg = fit_first_cfg(fit);
-	CHECKEQ(-FITE_MISSING_IMAGE, fit_cfg_img(fit, cfg, "firmware", 0));
-	CHECKEQ(-FITE_NOT_FOUND, fit_cfg_img(fit, cfg, "firmware", 1));
+	g_assert_cmpint(-FITE_MISSING_IMAGE, ==, fit_cfg_img(fit, cfg, "firmware", 0));
+	g_assert_cmpint(-FITE_NOT_FOUND, ==, fit_cfg_img(fit, cfg, "firmware", 1));
 	fit_close(fit);
 
 	/* With an image as well */
@@ -341,10 +340,8 @@ test_img(void)
 	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
 	data = fit_img_data(fit, img, &size);
 	CHECKEQ_NULL(data);
-	CHECKEQ(-FITE_NOT_FOUND, size);
+	g_assert_cmpint(-FITE_NOT_FOUND, ==, size);
 	fit_close(fit);
-
-	return 0;
 }
 
 /* Normal FIT with data as well */
@@ -367,11 +364,11 @@ test_data(void)
 
 	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
 	data = fit_img_data(fit, img, &size);
-	CHECKEQ(3, size);
+	g_assert_cmpint(3, ==, size);
 	CHECK(!strncmp(data, "abc", 3));
 
 	cfg = fit_next_cfg(fit, cfg);
-	CHECKEQ(-FITE_NOT_FOUND, cfg);
+	g_assert_cmpint(-FITE_NOT_FOUND, ==, cfg);
 
 	return 0;
 }
@@ -395,7 +392,7 @@ test_ext_data(void)
 
 	data = fit_img_data(fit, img, &size);
 	CHECKEQ_NULL(data);
-	CHECKEQ(-FITE_MISSING_SIZE, size);
+	g_assert_cmpint(-FITE_MISSING_SIZE, ==, size);
 	fit_close(fit);
 
 	/* Test with bad data-size property */
@@ -410,7 +407,7 @@ test_ext_data(void)
 
 	data = fit_img_data(fit, img, &size);
 	CHECKEQ_NULL(data);
-	CHECKEQ(-FITE_NEGATIVE_SIZE, size);
+	g_assert_cmpint(-FITE_NEGATIVE_SIZE, ==, size);
 	fit_close(fit);
 
 	/* Test with bad data-offset property */
@@ -425,7 +422,7 @@ test_ext_data(void)
 
 	data = fit_img_data(fit, img, &size);
 	CHECKEQ_NULL(data);
-	CHECKEQ(-FITE_NEGATIVE_OFFSET, size);
+	g_assert_cmpint(-FITE_NEGATIVE_OFFSET, ==, size);
 	fit_close(fit);
 
 	/* Test with valid data-size property */
@@ -439,7 +436,7 @@ test_ext_data(void)
 	img = fit_cfg_img(fit, cfg, "firmware", 0);
 
 	data = fit_img_data(fit, img, &size);
-	CHECKEQ(3, size);
+	g_assert_cmpint(3, ==, size);
 	CHECK(data != NULL);
 	CHECK(!strncmp(data, "abc", 3));
 	fit_close(fit);
@@ -470,7 +467,7 @@ test_crc32(void)
 	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
 	data = fit_img_data(fit, img, &size);
 	CHECKEQ_NULL(data);
-	CHECKEQ(-FITE_MISSING_ALGO, size);
+	g_assert_cmpint(-FITE_MISSING_ALGO, ==, size);
 	fit_close(fit);
 
 	/* Unknown 'algo' property gives an error when 'value' is provided */
@@ -487,7 +484,7 @@ test_crc32(void)
 	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
 	data = fit_img_data(fit, img, &size);
 	CHECKEQ_NULL(data);
-	CHECKEQ(-FITE_UNKNOWN_ALGO, size);
+	g_assert_cmpint(-FITE_UNKNOWN_ALGO, ==, size);
 	fit_close(fit);
 
 	/* Missing 'value' property means the hash is ignored */
@@ -509,7 +506,7 @@ test_crc32(void)
 	/* ...but we can see that the hash value as missing */
 	node = fdt_first_subnode(fit->blob, img);
 	CHECK(node > 0);
-	CHECKEQ(-FITE_MISSING_VALUE, fit_check_hash(fit, node, "abc", 3));
+	g_assert_cmpint(-FITE_MISSING_VALUE, ==, fit_check_hash(fit, node, "abc", 3));
 	fit_close(fit);
 
 	/* 'value' and 'algo' present but the value size is wrong */
@@ -526,7 +523,7 @@ test_crc32(void)
 	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
 	data = fit_img_data(fit, img, &size);
 	CHECKEQ_NULL(data);
-	CHECKEQ(-FITE_INVALID_HASH_SIZE, size);
+	g_assert_cmpint(-FITE_INVALID_HASH_SIZE, ==, size);
 	fit_close(fit);
 
 	/* 'value' and 'algo' present but the value is wrong */
@@ -543,7 +540,7 @@ test_crc32(void)
 	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
 	data = fit_img_data(fit, img, &size);
 	CHECKEQ_NULL(data);
-	CHECKEQ(-FITE_HASH_MISMATCH, size);
+	g_assert_cmpint(-FITE_HASH_MISMATCH, ==, size);
 	fit_close(fit);
 
 	/* 'value' and 'algo' present with correct value */
@@ -560,7 +557,7 @@ test_crc32(void)
 	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
 	data = fit_img_data(fit, img, &size);
 	CHECKEQ_NULL(data);
-	CHECKEQ(-FITE_HASH_MISMATCH, size);
+	g_assert_cmpint(-FITE_HASH_MISMATCH, ==, size);
 	fit_close(fit);
 
 	return 0;
@@ -582,7 +579,7 @@ test_store_offset(void)
 	CHECK(img > 0);
 
 	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
-	CHECKEQ(-FITE_NOT_FOUND, fit_img_store_offset(fit, img));
+	g_assert_cmpint(-FITE_NOT_FOUND, ==, fit_img_store_offset(fit, img));
 	fit_close(fit);
 
 	/* Negative 'store-offset' property */
@@ -597,7 +594,7 @@ test_store_offset(void)
 	CHECK(img > 0);
 
 	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
-	CHECKEQ(-FITE_NEGATIVE_OFFSET, fit_img_store_offset(fit, img));
+	g_assert_cmpint(-FITE_NEGATIVE_OFFSET, ==, fit_img_store_offset(fit, img));
 	fit_close(fit);
 
 	/* Valid 'store-offset' property */
@@ -611,7 +608,7 @@ test_store_offset(void)
 	CHECK(img > 0);
 
 	CHECKEQ_STR("firmware-1", fit_img_name(fit, img));
-	CHECKEQ(0x1000, fit_img_store_offset(fit, img));
+	g_assert_cmpint(0x1000, ==, fit_img_store_offset(fit, img));
 	fit_close(fit);
 
 	return 0;
@@ -643,6 +640,8 @@ test_version(void)
 
 	return 0;
 }
+#endif
+/*
 int
 fit_test(void)
 {
@@ -657,7 +656,7 @@ fit_test(void)
 
 	return 0;
 }
-
+*/
 static void
 test_set_up(FitTest *ftest, gconstpointer params)
 {
