@@ -154,9 +154,11 @@ common to all:
 Note that all VBE methods must subclass `FuVbeDevice` since it provides access to
 the device tree and the VBE directory, among other things.
 
-At present only one method is available:
+These methods are available:
 
 * `fwupd,vbe-simple` - writes a single copy of the firmware to media
+* `fwupd,vbe-abrec` - keeps A, B and recovery copies, trying an update in B
+  before using it
 
 ### vbe-simple
 
@@ -183,6 +185,49 @@ Properties for this method are:
 * `part-id` - the partition number containing the fwupd state. This is not
    used by fwupd at present but may allow the bootloader to check the fwupd
    state on boot
+
+### vbe-abrec
+
+This keeps three copies of the firmware, as implemented by U-Boot's VBE
+A/B/recovery method. A is the firmware normally booted, B is used to try out an
+update and recovery is used if requested, but is never written by fwupd.
+
+An update is written to the B slot. fwupd then sets the state so that U-Boot's
+VPL phase tries B, up to three times. Each attempt uses up a try. When the OS
+starts after booting B, U-Boot reports `booted-slot = "b"`, so fwupd copies B to
+A, records the new version and clears the request. From then on A holds the new
+firmware. If B runs out of tries without reaching the OS, VPL marks it bad and
+boots A, so the update has failed and the version is unchanged.
+
+The update payload is the image for one slot, i.e. the SPL FIT followed by the
+U-Boot FIT, which binman builds as the `vbe-a` (or `vbe-b`) section.
+
+The device has an instance ID of the form `VBE\COMPATIBLE_xxx`, using the first
+compatible string of the `/chosen/fwupd` node, which U-Boot copies from the
+board's root node. This allows firmware to be targeted at a particular board.
+
+Properties for this method are:
+
+* `compatible` - must be `fwupd,vbe-abrec`
+* `storage` - device to store firmware in, as for vbe-simple
+* `area-start` - start offset in bytes of the VBE area within the storage
+* `state-offset` - offset of the state from `area-start`, in bytes
+* `state-size` - size of the state, a power of two no larger than 0x40
+* `version-offset` - offset of the version string from `area-start`
+* `version-size` - size of the version string
+* `slot-a-offset`, `slot-b-offset` - offsets of the A and B firmware in the
+   storage
+* `slot-size` - space available for each copy of the firmware
+* `booted-slot` - added by U-Boot to say which copy was booted: `a`, `b` or
+   `recovery`
+* `cur-version` - added by U-Boot, though fwupd reads the version from the
+   storage
+
+The state is 64 bytes long, starting with a CRC8 (polynomial 0x07) of the
+remaining bytes, followed by a header byte `0x61` (version 1, size 0x40). The
+32-bit little-endian flags at offset 8 hold the try count (bits 1:0), try-B
+(bit 2), recovery (bit 3), the result of the last try (bits 5:4: unknown,
+trying, ok, bad) and the copy which was picked (bits 7:6: A, B, recovery).
 
 ## Finding out more
 
