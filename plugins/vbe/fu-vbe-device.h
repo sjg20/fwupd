@@ -19,3 +19,17 @@ FuFdtImage *
 fu_vbe_device_get_fdt_node(FuVbeDevice *self);
 gchar **
 fu_vbe_device_get_compatible(FuVbeDevice *self);
+const gchar *
+fu_vbe_device_get_devname(FuVbeDevice *self);
+gint
+fu_vbe_device_get_fd(FuVbeDevice *self);
+gboolean
+fu_vbe_device_parse_devnum(const gchar *str, guint *value, GError **error);
+gboolean
+fu_vbe_device_read(FuVbeDevice *self, goffset offset, guint8 *buf, gsize bufsz, GError **error);
+gboolean
+fu_vbe_device_write(FuVbeDevice *self,
+		    goffset offset,
+		    const guint8 *buf,
+		    gsize bufsz,
+		    GError **error);

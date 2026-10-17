@@ -8,6 +8,7 @@
 
 #include "config.h"
 
+#include "fu-vbe-abrec-device.h"
 #include "fu-vbe-plugin.h"
 #include "fu-vbe-simple-device.h"
 
@@ -27,6 +28,7 @@ fu_vbe_plugin_coldplug_img(FuPlugin *plugin,
 	g_autofree gchar *compatible = NULL;
 	g_auto(GStrv) split = NULL;
 	g_autoptr(FuDevice) dev = NULL;
+	g_autoptr(FuDeviceLocker) locker = NULL;
 
 	/* we expect 'fwupd,vbe-<driver>' */
 	if (!fu_fdt_image_get_attr_str(fdt_node,
@@ -65,6 +67,8 @@ fu_vbe_plugin_coldplug_img(FuPlugin *plugin,
 	}
 	if (g_strcmp0(split[1], "vbe-simple") == 0) {
 		device_gtype = FU_TYPE_VBE_SIMPLE_DEVICE;
+	} else if (g_strcmp0(split[1], "vbe-abrec") == 0) {
+		device_gtype = FU_TYPE_VBE_ABREC_DEVICE;
 	} else {
 		g_set_error(error,
 			    FWUPD_ERROR,
@@ -83,6 +87,11 @@ fu_vbe_plugin_coldplug_img(FuPlugin *plugin,
 			   "fdt-node",
 			   fdt_node,
 			   NULL);
+
+	/* the device only knows its IDs, and can finish an update, once set up */
+	locker = fu_device_locker_new(dev, error);
+	if (locker == NULL)
+		return FALSE;
 	fu_plugin_add_device(plugin, dev);
 	return TRUE;
 }
@@ -134,6 +143,7 @@ fu_vbe_plugin_constructed(GObject *obj)
 {
 	FuPlugin *plugin = FU_PLUGIN(obj);
 	fu_plugin_add_device_gtype(plugin, FU_TYPE_VBE_SIMPLE_DEVICE); /* coverage */
+	fu_plugin_add_device_gtype(plugin, FU_TYPE_VBE_ABREC_DEVICE);  /* coverage */
 
 	/* chain up to parent */
 	G_OBJECT_CLASS(fu_vbe_plugin_parent_class)->constructed(obj);

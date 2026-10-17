@@ -9,6 +9,7 @@ plugin_builtin_vbe = static_library(
   'fu_plugin_vbe',
   sources: [
     'fu-vbe-plugin.c',
+    'fu-vbe-abrec-device.c',
     'fu-vbe-device.c',
     'fu-vbe-simple-device.c',
     'fu-vbe-simple-firmware.c',
