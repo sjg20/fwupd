@@ -27,12 +27,9 @@
  */
 struct _FuVbeSimpleDevice {
 	FuVbeDevice parent_instance;
-	gchar *storage; /* e.g. "mmc1" */
-	gchar *devname; /* e.g. /dev/mmcblk1 */
 	guint32 area_start;
 	guint32 area_size;
 	guint32 skip_offset;
-	gint fd;
 };
 
 G_DEFINE_TYPE(FuVbeSimpleDevice, fu_vbe_simple_device, FU_TYPE_VBE_DEVICE)
@@ -41,28 +38,9 @@ static void
 fu_vbe_simple_device_to_string(FuDevice *device, guint idt, GString *str)
 {
 	FuVbeSimpleDevice *self = FU_VBE_SIMPLE_DEVICE(device);
-	fwupd_codec_string_append(str, idt, "Storage", self->storage);
-	fwupd_codec_string_append(str, idt, "Devname", self->devname);
 	fwupd_codec_string_append_hex(str, idt, "AreaStart", self->area_start);
 	fwupd_codec_string_append_hex(str, idt, "AreaSize", self->area_size);
 	fwupd_codec_string_append_hex(str, idt, "SkipOffset", self->skip_offset);
-}
-
-static gboolean
-fu_vbe_simple_device_parse_devnum(const gchar *str, guint *value, GError **error)
-{
-	guint64 val64 = 0;
-
-	/* skip non-numeric part */
-	while (*str != '\0' && g_ascii_isdigit(*str))
-		str++;
-
-	/* convert to uint */
-	if (!fu_strtoull(str, &val64, 0x0, G_MAXUINT, FU_INTEGER_BASE_AUTO, error))
-		return FALSE;
-	if (value != NULL)
-		*value = val64;
-	return TRUE;
 }
 
 static gboolean
@@ -78,31 +56,6 @@ fu_vbe_simple_device_probe(FuDevice *device, GError **error)
 		return FALSE;
 
 	fdt_node = fu_vbe_device_get_fdt_node(FU_VBE_DEVICE(self));
-	if (!fu_fdt_image_get_attr_str(fdt_node, "storage", &self->storage, error))
-		return FALSE;
-
-	/* if this is an absolute path, use it */
-	if (g_str_has_prefix(self->storage, "/")) {
-		self->devname = g_strdup(self->storage);
-	} else {
-		guint devnum = 0;
-
-		/* obtain the 1 from "mmc1" */
-		if (!fu_vbe_simple_device_parse_devnum(self->storage, &devnum, error)) {
-			g_prefix_error(error, "cannot parse storage property %s: ", self->storage);
-			return FALSE;
-		}
-		if (g_str_has_prefix(self->storage, "mmc")) {
-			self->devname = g_strdup_printf("/dev/mmcblk%u", devnum);
-		} else {
-			g_set_error(error,
-				    FWUPD_ERROR,
-				    FWUPD_ERROR_NOT_SUPPORTED,
-				    "unsupported 'storage' media '%s'",
-				    self->storage);
-			return FALSE;
-		}
-	}
 
 	/* get area */
 	if (!fu_fdt_image_get_attr_u32(fdt_node, "area-start", &self->area_start, error))
@@ -135,47 +88,6 @@ fu_vbe_simple_device_probe(FuDevice *device, GError **error)
 	return TRUE;
 }
 
-static gboolean
-fu_vbe_simple_device_open(FuDevice *device, GError **error)
-{
-	FuVbeSimpleDevice *self = FU_VBE_SIMPLE_DEVICE(device);
-
-	/* open device */
-	self->fd = open(self->devname, O_RDWR);
-	if (self->fd == -1) {
-#ifdef HAVE_ERRNO_H
-		g_set_error(error,
-			    FWUPD_ERROR,
-			    FWUPD_ERROR_NOT_SUPPORTED,
-			    "cannot open %s [%s]",
-			    self->devname,
-			    fwupd_strerror(errno));
-#else
-		g_set_error(error,
-			    FWUPD_ERROR,
-			    FWUPD_ERROR_NOT_SUPPORTED,
-			    "cannot open %s",
-			    self->devname);
-		return FALSE;
-#endif
-	}
-
-	/* success */
-	return TRUE;
-}
-
-static gboolean
-fu_vbe_simple_device_close(FuDevice *device, GError **error)
-{
-	FuVbeSimpleDevice *self = FU_VBE_SIMPLE_DEVICE(device);
-
-	/* close device */
-	g_clear_fd(&self->fd, NULL);
-
-	/* success */
-	return TRUE;
-}
-
 static FuFdtImage *
 fu_vbe_simple_device_get_cfg_compatible(FuVbeSimpleDevice *self,
 					FuFirmware *firmware,
@@ -197,6 +109,13 @@ fu_vbe_simple_device_get_cfg_compatible(FuVbeSimpleDevice *self,
 
 	/* look for a configuration with the device compatible strings in priority order */
 	device_compatible = fu_vbe_device_get_compatible(FU_VBE_DEVICE(self));
+	if (device_compatible == NULL) {
+		g_set_error_literal(error,
+				    FWUPD_ERROR,
+				    FWUPD_ERROR_NOT_SUPPORTED,
+				    "no compatible strings for the board");
+		return NULL;
+	}
 	for (guint j = 0; device_compatible[j] != NULL; j++) {
 		for (guint i = 0; i < img_configurations->len; i++) {
 			FuFdtImage *img = g_ptr_array_index(img_configurations, i);
@@ -318,14 +237,14 @@ fu_vbe_simple_device_write_firmware_img(FuVbeSimpleDevice *self,
 		(guint)self->skip_offset,
 		(guint)store_offset,
 		(guint)seek_to);
-	rc = lseek(self->fd, seek_to, SEEK_SET);
+	rc = lseek(fu_vbe_device_get_fd(FU_VBE_DEVICE(self)), seek_to, SEEK_SET);
 	if (rc < 0) {
 #ifdef HAVE_ERRNO_H
 		g_set_error(error,
 			    FWUPD_ERROR,
 			    FWUPD_ERROR_WRITE,
 			    "cannot seek file '%s' to 0x%x [%s]",
-			    self->devname,
+			    fu_vbe_device_get_devname(FU_VBE_DEVICE(self)),
 			    (guint)seek_to,
 			    fwupd_strerror(errno));
 #else
@@ -333,28 +252,30 @@ fu_vbe_simple_device_write_firmware_img(FuVbeSimpleDevice *self,
 			    FWUPD_ERROR,
 			    FWUPD_ERROR_WRITE,
 			    "cannot seek file '%s' to 0x%x",
-			    self->devname,
+			    fu_vbe_device_get_devname(FU_VBE_DEVICE(self)),
 			    (guint)seek_to);
 #endif
 		return FALSE;
 	}
 
 	/* write buffer */
-	rc = write(self->fd, buf + self->skip_offset, bufsz - self->skip_offset);
+	rc = write(fu_vbe_device_get_fd(FU_VBE_DEVICE(self)),
+		   buf + self->skip_offset,
+		   bufsz - self->skip_offset);
 	if (rc < 0) {
 #ifdef HAVE_ERRNO_H
 		g_set_error(error,
 			    FWUPD_ERROR,
 			    FWUPD_ERROR_WRITE,
 			    "cannot write file '%s' [%s]",
-			    self->devname,
+			    fu_vbe_device_get_devname(FU_VBE_DEVICE(self)),
 			    fwupd_strerror(errno));
 #else
 		g_set_error(error,
 			    FWUPD_ERROR,
 			    FWUPD_ERROR_WRITE,
 			    "cannot write file '%s'",
-			    self->devname);
+			    fu_vbe_device_get_devname(FU_VBE_DEVICE(self)));
 #endif
 		return FALSE;
 	}
@@ -414,14 +335,14 @@ fu_vbe_simple_device_upload(FuDevice *device, FuProgress *progress, GError **err
 	fu_progress_set_status(progress, FWUPD_STATUS_DEVICE_READ);
 
 	/* seek to start */
-	rc = lseek(self->fd, self->area_start, SEEK_SET);
+	rc = lseek(fu_vbe_device_get_fd(FU_VBE_DEVICE(self)), self->area_start, SEEK_SET);
 	if (rc < 0) {
 #ifdef HAVE_ERRNO_H
 		g_set_error(error,
 			    FWUPD_ERROR,
 			    FWUPD_ERROR_READ,
 			    "cannot seek file %s to 0x%x [%s]",
-			    self->devname,
+			    fu_vbe_device_get_devname(FU_VBE_DEVICE(self)),
 			    (guint)self->area_start,
 			    fwupd_strerror(errno));
 #else
@@ -429,7 +350,7 @@ fu_vbe_simple_device_upload(FuDevice *device, FuProgress *progress, GError **err
 			    FWUPD_ERROR,
 			    FWUPD_ERROR_READ,
 			    "cannot seek file %s to 0x%x",
-			    self->devname,
+			    fu_vbe_device_get_devname(FU_VBE_DEVICE(self)),
 			    (guint)self->area_start);
 #endif
 		return NULL;
@@ -449,13 +370,15 @@ fu_vbe_simple_device_upload(FuDevice *device, FuProgress *progress, GError **err
 		FuChunk *chk = g_ptr_array_index(chunks, i);
 		g_autofree guint8 *tmpbuf = g_malloc0(fu_chunk_get_data_sz(chk));
 
-		rc = read(self->fd, tmpbuf, fu_chunk_get_data_sz(chk));
+		rc = read(fu_vbe_device_get_fd(FU_VBE_DEVICE(self)),
+			  tmpbuf,
+			  fu_chunk_get_data_sz(chk));
 		if (rc != (gssize)fu_chunk_get_data_sz(chk)) {
 			g_set_error(error,
 				    FWUPD_ERROR,
 				    FWUPD_ERROR_READ,
 				    "incomplete read of %s @0x%x",
-				    self->devname,
+				    fu_vbe_device_get_devname(FU_VBE_DEVICE(self)),
 				    (guint)fu_chunk_get_address(chk));
 			return NULL;
 		}
@@ -499,25 +422,13 @@ fu_vbe_simple_device_constructed(GObject *obj)
 }
 
 static void
-fu_vbe_simple_device_finalize(GObject *obj)
-{
-	FuVbeSimpleDevice *self = FU_VBE_SIMPLE_DEVICE(obj);
-	g_free(self->devname);
-	g_free(self->storage);
-	G_OBJECT_CLASS(fu_vbe_simple_device_parent_class)->finalize(obj);
-}
-
-static void
 fu_vbe_simple_device_class_init(FuVbeSimpleDeviceClass *klass)
 {
 	GObjectClass *object_class = G_OBJECT_CLASS(klass);
 	FuDeviceClass *device_class = FU_DEVICE_CLASS(klass);
 	object_class->constructed = fu_vbe_simple_device_constructed;
-	object_class->finalize = fu_vbe_simple_device_finalize;
 	device_class->to_string = fu_vbe_simple_device_to_string;
 	device_class->probe = fu_vbe_simple_device_probe;
-	device_class->open = fu_vbe_simple_device_open;
-	device_class->close = fu_vbe_simple_device_close;
 	device_class->set_progress = fu_vbe_simple_device_set_progress;
 	device_class->prepare_firmware = fu_vbe_simple_device_prepare_firmware;
 	device_class->write_firmware = fu_vbe_simple_device_write_firmware;
